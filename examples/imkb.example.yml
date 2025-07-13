@@ -1,0 +1,71 @@
+# imkb Configuration Example
+# Copy to imkb.yml and customize for your environment
+
+llm:
+  default: "deepseek_local"
+  routers:
+    deepseek_local:
+      provider: "llama_cpp"
+      model: "deepseek-33b.awq"
+      gpu_layers: 20
+      max_tokens: 1024
+      temperature: 0.2
+    openai_cloud:
+      provider: "openai"
+      model: "gpt-4o-mini"
+      api_key: "${OPENAI_API_KEY}"
+      max_tokens: 2048
+      temperature: 0.3
+
+mem0:
+  vector_store:
+    provider: "qdrant"
+    host: "localhost"
+    port: 6333
+    collection_name: "imkb_vectors"
+    embedding_model_dims: 1536
+  graph_store:
+    provider: "neo4j"
+    url: "neo4j://localhost:7687"
+    username: "neo4j"
+    password: "${NEO4J_PASSWORD}"
+    database: "imkb"
+
+extractors:
+  enabled:
+    - rhokp
+    - mysqlkb
+  rhokp:
+    solr_url: "https://access.redhat.com/search"
+    timeout: 5.0
+    max_results: 10
+  mysqlkb:
+    connection_string: "${MYSQL_KB_URL}"
+    timeout: 3.0
+    cache_ttl: 3600
+
+features:
+  mem0_graph: true        # Enable graph storage for relationship modeling
+  solr_kb: true          # Enable Solr knowledge base integration  
+  playwright_kb: false   # Disable web scraping for MVP
+  local_llm: true        # Enable local LLM support
+  cloud_llm: false       # Disable cloud LLM for MVP
+
+telemetry:
+  otlp_endpoint: "http://localhost:4317"
+  enable_metrics: true
+  enable_tracing: true
+  service_name: "imkb"
+  environment: "development"
+
+# Performance settings
+performance:
+  recall_timeout: 2.0     # Max time for recall operations
+  llm_timeout: 10.0       # Max time for LLM inference
+  max_concurrent: 5       # Max concurrent operations
+  
+# Security settings  
+security:
+  enable_audit_log: true
+  max_prompt_length: 4096
+  sanitize_inputs: true
