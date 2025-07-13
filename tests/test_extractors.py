@@ -35,7 +35,7 @@ class TestEvent:
             "message": "Cannot connect to MySQL"
         }
         
-        event = Event.from_dict(event_data)
+        event = Event.model_validate(event_data)
         
         assert event.id == "test-123"
         assert event.signature == "db.connection.error"
@@ -62,7 +62,7 @@ class TestEvent:
             }
         }
         
-        event = Event.from_dict(event_data)
+        event = Event.model_validate(event_data)
         
         assert event.raw["endpoint"] == "/users"
         assert event.raw["timeout_duration"] == "30s"
@@ -462,7 +462,7 @@ class TestExtractorIntegration:
             "message": "Database is refusing new connections"
         }
         
-        event = Event.from_dict(event_data)
+        event = Event.model_validate(event_data)
         
         # Test with MySQL extractor
         mysql_extractor = MySQLKBExtractor(ImkbConfig())

@@ -130,7 +130,7 @@ class TestActionPipeline:
             root_cause="Database connection pool exhausted",
             confidence=0.85,
             extractor="mysqlkb",
-            references=[KBItem(excerpt="Connection pool issues", source="mysql_kb")],
+            references=[KBItem(doc_id="kb-1", excerpt="Connection pool issues", score=0.9)],
             immediate_actions=["Increase pool size", "Monitor connections"],
             preventive_measures=["Add alerts", "Review configuration"],
             contributing_factors=["High traffic", "Misconfiguration"]
@@ -147,13 +147,16 @@ class TestActionPipeline:
         """Test searching for similar past actions"""
         with patch.object(self.pipeline.mem0_adapter, 'search') as mock_search:
             mock_search.return_value = [
-                KBItem(excerpt="Previous action for similar issue", source="actions", confidence=0.8)
+                KBItem(doc_id="kb-2", excerpt="Previous action for similar issue", score=0.8)
             ]
             
+            # Add metadata to the mock object for testing
+            mock_search.return_value[0].metadata['source'] = 'actions'
+
             similar_actions = await self.pipeline.search_similar_actions(self.rca_result, limit=3)
-            
+
             assert len(similar_actions) == 1
-            assert similar_actions[0].source == "actions"
+            assert similar_actions[0].metadata.get('source') == "actions"
             mock_search.assert_called_once()
     
     @pytest.mark.asyncio
@@ -170,7 +173,7 @@ class TestActionPipeline:
     def test_build_action_prompt_context(self):
         """Test building prompt context for action generation"""
         similar_actions = [
-            KBItem(excerpt="Previous remediation", source="actions", confidence=0.9)
+            KBItem(doc_id="kb-3", excerpt="Previous remediation", score=0.9)
         ]
         
         context = self.pipeline._build_action_prompt_context(self.rca_result, similar_actions)
@@ -293,7 +296,7 @@ This should resolve the issue."""
         """Test successful action generation"""
         # Mock similar actions search
         mock_similar_actions = [
-            KBItem(excerpt="Previous DB fix", source="actions", confidence=0.9)
+            KBItem(doc_id="kb-4", excerpt="Previous DB fix", score=0.9)
         ]
         
         # Mock LLM response
@@ -376,7 +379,7 @@ class TestGenPlaybookFunction:
             "root_cause": "Network timeout issue",
             "confidence": 0.8,
             "extractor": "network",
-            "references": [{"excerpt": "Network issue", "source": "kb", "confidence": 0.8, "metadata": {}}],
+            "references": [{"doc_id": "kb-1", "excerpt": "Network issue", "score": 0.8, "metadata": {}}],
             "immediate_actions": ["Check network", "Restart service"],
             "preventive_measures": ["Add monitoring"]
         }

@@ -1,3 +1,4 @@
+
 """
 Command-line interface for imkb
 
@@ -7,9 +8,13 @@ Provides CLI commands for:
 - Managing configuration: imkb config --show
 """
 
+import asyncio
+import json
 import click
 
 from . import __version__
+from . import get_rca as get_rca_func
+from . import gen_playbook as gen_playbook_func
 
 
 @click.group()
@@ -20,14 +25,10 @@ def cli():
 
 
 @cli.command()
-@click.option("--event-file", type=click.Path(exists=True), help="JSON file containing event data")
+@click.option("--event-file", type=click.Path(exists=True), required=True, help="JSON file containing event data")
 @click.option("--namespace", default="default", help="Tenant namespace for isolation")
 def get_rca(event_file: str, namespace: str):
     """Analyze an incident event and generate root cause analysis"""
-    import asyncio
-    import json
-    from . import get_rca as get_rca_func
-    
     try:
         # Load event data
         with open(event_file, 'r') as f:
@@ -57,14 +58,10 @@ def get_rca(event_file: str, namespace: str):
 
 
 @cli.command()
-@click.option("--rca-file", type=click.Path(exists=True), help="JSON file containing RCA results")
+@click.option("--rca-file", type=click.Path(exists=True), required=True, help="JSON file containing RCA results")
 @click.option("--namespace", default="default", help="Tenant namespace for isolation")
 def gen_playbook(rca_file: str, namespace: str):
     """Generate remediation playbook from RCA analysis"""
-    import asyncio
-    import json
-    from . import gen_playbook as gen_playbook_func
-    
     try:
         # Load RCA data
         with open(rca_file, 'r') as f:
@@ -77,12 +74,12 @@ def gen_playbook(rca_file: str, namespace: str):
         click.echo(f"📋 Remediation Playbook for {rca_file}")
         click.echo("=" * 50)
         
-        click.echo(f"Priority: {result['priority']}")
+        click.echo(f"Priority: {result.get('priority', 'Not specified')}")
         click.echo(f"Estimated Time: {result.get('estimated_time', 'Not specified')}")
-        click.echo(f"Risk Level: {result['risk_level']}")
+        click.echo(f"Risk Level: {result.get('risk_level', 'Not specified')}")
         
-        click.echo(f"\n🎯 Actions ({len(result['actions'])}):")
-        for i, action in enumerate(result['actions'], 1):
+        click.echo(f"\n🎯 Actions ({len(result.get('actions', []))}):")
+        for i, action in enumerate(result.get('actions', []), 1):
             click.echo(f"  {i}. {action}")
         
         if result.get('prerequisites'):
@@ -104,6 +101,7 @@ def gen_playbook(rca_file: str, namespace: str):
         
     except Exception as e:
         click.echo(f"❌ Playbook generation failed: {e}", err=True)
+
 
 
 @cli.command()

@@ -10,9 +10,10 @@ import logging
 import re
 import asyncio
 
-from .base import ExtractorBase, Event, KBItem, register_extractor
+from .base import ExtractorBase, register_extractor
 from ..adapters.mem0 import Mem0Adapter
 from ..config import ImkbConfig
+from ..models import Event, KBItem
 
 logger = logging.getLogger(__name__)
 
