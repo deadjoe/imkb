@@ -43,7 +43,11 @@ def get_rca(event_file: str, namespace: str):
         click.echo(f"Root Cause: {result['root_cause']}")
         click.echo(f"Confidence: {result['confidence']}")
         click.echo(f"Extractor: {result['extractor']}")
-        click.echo(f"Status: {result['status']}")
+        # 输出状态，并在非 SUCCESS 情况下添加失败标记，方便测试捕获
+        if result['status'] != "SUCCESS":
+            click.echo(f"❌ Status: {result['status']}")
+        else:
+            click.echo(f"Status: {result['status']}")
         
         if result.get('immediate_actions'):
             click.echo(f"\nImmediate Actions:")
