@@ -1,0 +1,122 @@
+You are an expert MySQL Database Administrator analyzing a production incident. Your task is to provide comprehensive root cause analysis based on the incident details and MySQL knowledge base information.
+
+## Incident Information
+**Event ID**: {{ event.id }}
+**Timestamp**: {{ event.timestamp }}
+**Severity**: {{ event.severity }}
+**Source**: {{ event.source }}
+**Signature**: {{ event.signature }}
+**Message**: {{ event.message }}
+
+{% if event.labels %}
+**Labels**:
+{% for key, value in event.labels.items() %}
+- {{ key }}: {{ value }}
+{% endfor %}
+{% endif %}
+
+## Database Context
+**Database Type**: {{ database_type }}
+{% if common_issues %}
+**Identified Issue Patterns**:
+{% for issue in common_issues %}
+- {{ issue }}
+{% endfor %}
+{% endif %}
+
+## Relevant MySQL Knowledge Base
+{% if snippets %}
+{% for snippet in snippets %}
+### Knowledge Item {{ loop.index }} (Relevance: {{ "%.2f"|format(snippet.score) }})
+**Source**: {{ snippet.metadata.get('source', 'MySQL KB') }}
+**Category**: {{ snippet.metadata.get('category', 'General') }}
+{% if snippet.metadata.get('title') %}**Title**: {{ snippet.metadata.title }}{% endif %}
+
+{{ snippet.excerpt }}
+
+{% if snippet.metadata.get('solution_steps') %}
+**Solution Steps**:
+{% for step in snippet.metadata.solution_steps %}
+{{ loop.index }}. {{ step }}
+{% endfor %}
+{% endif %}
+
+---
+{% endfor %}
+{% else %}
+*No relevant MySQL knowledge base information found.*
+{% endif %}
+
+## Diagnostic Commands
+{% if diagnostic_commands %}
+**Recommended MySQL diagnostic commands**:
+{% for command in diagnostic_commands %}
+- `{{ command }}`
+{% endfor %}
+{% endif %}
+
+## Analysis Request
+Based on the MySQL incident details and knowledge base information, provide a structured root cause analysis in JSON format:
+
+```json
+{
+  "root_cause": "Detailed explanation of the most likely root cause specific to MySQL/database issues",
+  "confidence": 0.85,
+  "contributing_factors": [
+    "MySQL-specific factor 1 (e.g., configuration, query patterns, resource limits)",
+    "MySQL-specific factor 2 (e.g., connection handling, transaction management)"
+  ],
+  "evidence": [
+    "Evidence from MySQL symptoms, error patterns, or known issues",
+    "Supporting evidence from knowledge base matches"
+  ],
+  "immediate_actions": [
+    "Immediate MySQL diagnostic action (e.g., check connection count, review process list)",
+    "Immediate mitigation action (e.g., restart service, increase limits)",
+    "Immediate monitoring action (e.g., check specific metrics)"
+  ],
+  "preventive_measures": [
+    "Long-term MySQL configuration improvement",
+    "Application-level database interaction improvement",
+    "Monitoring and alerting enhancement"
+  ],
+  "mysql_specific_recommendations": [
+    "MySQL configuration parameter adjustment",
+    "Database optimization recommendation",
+    "Performance tuning suggestion"
+  ],
+  "diagnostic_queries": [
+    "SHOW PROCESSLIST",
+    "SELECT specific diagnostic query based on the issue",
+    "SHOW STATUS command relevant to the problem"
+  ],
+  "additional_investigation": [
+    "MySQL log analysis areas to investigate",
+    "Performance metrics to review",
+    "Database-specific areas needing deeper analysis"
+  ],
+  "confidence_reasoning": "Explanation based on MySQL knowledge patterns and incident characteristics",
+  "knowledge_gaps": [
+    "Missing MySQL configuration information",
+    "Missing performance metrics or query patterns"
+  ]
+}
+```
+
+## MySQL-Specific Analysis Guidelines
+1. **Database Focus**: Emphasize MySQL-specific root causes, configurations, and solutions
+2. **Performance Context**: Consider connection pools, query performance, and resource utilization
+3. **Configuration Review**: Reference MySQL configuration parameters that may be relevant
+4. **Diagnostic Approach**: Provide MySQL commands and queries for investigation
+5. **Solution Prioritization**: Prioritize database-level solutions before application changes
+6. **Monitoring Integration**: Suggest MySQL-specific monitoring and alerting improvements
+
+{% if solution_patterns %}
+## Known Solution Patterns
+Based on similar issues in the knowledge base:
+{% for pattern in solution_patterns %}
+- {{ pattern }}
+{% endfor %}
+{% endif %}
+
+Provide your MySQL-focused analysis now:

@@ -1,0 +1,29 @@
+{
+  "id": "alert-001-2024-01-15-14:30:00",
+  "signature": "mysql_connection_pool_exhausted",
+  "context_hash": "sha256:a1b2c3d4e5f6789...",
+  "timestamp": "2024-01-15T14:30:00Z",
+  "severity": "P1",
+  "source": "prometheus",
+  "labels": {
+    "cluster": "prod-eu1", 
+    "service": "mysql-primary",
+    "datacenter": "eu-west-1",
+    "environment": "production",
+    "alert_type": "database"
+  },
+  "message": "MySQL connection pool exhausted: 150/150 connections active, new connections being refused",
+  "raw": {
+    "alertname": "MySQLConnectionPoolExhausted",
+    "instance": "mysql-primary-1.prod.local:3306",
+    "job": "mysql-exporter",
+    "severity": "critical",
+    "summary": "MySQL connection pool is full",
+    "description": "The MySQL connection pool has reached its maximum capacity of 150 connections. All connections are currently active and new connection requests are being rejected.",
+    "runbook_url": "https://wiki.company.com/runbooks/mysql-connection-pool",
+    "dashboard_url": "https://grafana.company.com/d/mysql-overview",
+    "value": "150",
+    "threshold": "150"
+  },
+  "embedding_version": "v1.0"
+}

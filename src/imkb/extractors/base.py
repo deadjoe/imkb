@@ -1,0 +1,267 @@
+"""
+Base extractor interface and utilities
+
+Defines the protocol and common functionality for knowledge source extractors.
+"""
+
+from typing import Any, Dict, List, Optional, Protocol, runtime_checkable
+from abc import ABC, abstractmethod
+import logging
+
+from ..adapters.mem0 import KBItem
+from ..config import ImkbConfig
+
+logger = logging.getLogger(__name__)
+
+
+class Event:
+    """Event data structure for incident/alert information"""
+    
+    def __init__(
+        self,
+        id: str,
+        signature: str,
+        timestamp: str,
+        severity: str,
+        source: str,
+        labels: Dict[str, str],
+        message: str,
+        raw: Optional[Dict[str, Any]] = None,
+        context_hash: Optional[str] = None,
+        embedding_version: str = "v1.0"
+    ):
+        self.id = id
+        self.signature = signature
+        self.timestamp = timestamp
+        self.severity = severity
+        self.source = source
+        self.labels = labels
+        self.message = message
+        self.raw = raw or {}
+        self.context_hash = context_hash
+        self.embedding_version = embedding_version
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert event to dictionary representation"""
+        return {
+            "id": self.id,
+            "signature": self.signature,
+            "timestamp": self.timestamp,
+            "severity": self.severity,
+            "source": self.source,
+            "labels": self.labels,
+            "message": self.message,
+            "raw": self.raw,
+            "context_hash": self.context_hash,
+            "embedding_version": self.embedding_version
+        }
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "Event":
+        """Create Event from dictionary"""
+        return cls(
+            id=data["id"],
+            signature=data["signature"],
+            timestamp=data["timestamp"],
+            severity=data["severity"],
+            source=data["source"],
+            labels=data["labels"],
+            message=data["message"],
+            raw=data.get("raw", {}),
+            context_hash=data.get("context_hash"),
+            embedding_version=data.get("embedding_version", "v1.0")
+        )
+    
+    def __repr__(self) -> str:
+        return f"Event(id='{self.id}', signature='{self.signature}', severity='{self.severity}')"
+
+
+@runtime_checkable
+class BaseExtractor(Protocol):
+    """
+    Protocol for knowledge source extractors
+    
+    Extractors are responsible for:
+    1. Determining if they can handle a given event (match)
+    2. Retrieving relevant knowledge from their source (recall)
+    3. Providing context for LLM prompt generation
+    """
+    
+    name: str
+    prompt_template: str
+    
+    async def match(self, event: Event) -> bool:
+        """
+        Determine if this extractor can handle the given event
+        
+        Args:
+            event: The incident event to analyze
+            
+        Returns:
+            True if this extractor should be used for this event
+        """
+        ...
+    
+    async def recall(self, event: Event, k: int = 10) -> List[KBItem]:
+        """
+        Retrieve relevant knowledge items for the event
+        
+        Args:
+            event: The incident event
+            k: Maximum number of items to return
+            
+        Returns:
+            List of relevant knowledge base items
+        """
+        ...
+    
+    def get_prompt_context(self, event: Event, snippets: List[KBItem]) -> Dict[str, Any]:
+        """
+        Generate context dictionary for prompt template
+        
+        Args:
+            event: The incident event
+            snippets: Retrieved knowledge items
+            
+        Returns:
+            Context dictionary for Jinja2 template rendering
+        """
+        ...
+
+
+class ExtractorBase(ABC):
+    """
+    Abstract base class for extractors with common functionality
+    
+    Provides shared implementation and utilities for concrete extractors.
+    """
+    
+    def __init__(self, config: ImkbConfig):
+        self.config = config
+        self.extractor_config = getattr(config.extractors, self.name, None)
+        if not self.extractor_config:
+            logger.warning(f"No configuration found for extractor '{self.name}', using defaults")
+    
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        """Extractor name (must match config key)"""
+        pass
+    
+    @property
+    @abstractmethod
+    def prompt_template(self) -> str:
+        """Path to prompt template (e.g., 'mysql_rca:v1')"""
+        pass
+    
+    @abstractmethod
+    async def match(self, event: Event) -> bool:
+        """Implementation-specific matching logic"""
+        pass
+    
+    @abstractmethod
+    async def recall(self, event: Event, k: int = 10) -> List[KBItem]:
+        """Implementation-specific knowledge retrieval"""
+        pass
+    
+    def get_prompt_context(self, event: Event, snippets: List[KBItem]) -> Dict[str, Any]:
+        """
+        Default prompt context generation
+        
+        Can be overridden by subclasses for custom context formatting.
+        """
+        return {
+            "event": event.to_dict(),
+            "snippets": [snippet.to_dict() for snippet in snippets],
+            "extractor_name": self.name,
+            "timestamp": event.timestamp,
+            "severity": event.severity,
+            "labels": event.labels,
+            "message": event.message
+        }
+    
+    def is_enabled(self) -> bool:
+        """Check if this extractor is enabled in configuration"""
+        return (
+            self.name in self.config.extractors.enabled and
+            getattr(self.config.extractors, self.name, None) and
+            getattr(self.config.extractors, self.name).enabled
+        )
+    
+    def get_timeout(self) -> float:
+        """Get timeout setting for this extractor"""
+        if self.extractor_config:
+            return self.extractor_config.timeout
+        return 5.0  # Default timeout
+    
+    def get_max_results(self) -> int:
+        """Get max results setting for this extractor"""
+        if self.extractor_config:
+            return self.extractor_config.max_results
+        return 10  # Default max results
+
+
+class ExtractorRegistry:
+    """
+    Registry for managing available extractors
+    
+    Handles registration, discovery, and instantiation of extractors.
+    """
+    
+    def __init__(self):
+        self._extractors: Dict[str, type] = {}
+    
+    def register(self, extractor_class: type) -> None:
+        """Register an extractor class"""
+        # Get name from class attribute
+        name = getattr(extractor_class, 'name', None)
+        if not name:
+            raise ValueError(f"Extractor class {extractor_class.__name__} must have a 'name' attribute")
+        
+        self._extractors[name] = extractor_class
+        logger.debug(f"Registered extractor: {name}")
+    
+    def get_extractor_class(self, name: str) -> Optional[type]:
+        """Get extractor class by name"""
+        return self._extractors.get(name)
+    
+    def get_available_extractors(self) -> List[str]:
+        """Get list of available extractor names"""
+        return list(self._extractors.keys())
+    
+    def create_extractor(self, name: str, config: ImkbConfig) -> Optional[BaseExtractor]:
+        """Create extractor instance by name"""
+        extractor_class = self.get_extractor_class(name)
+        if not extractor_class:
+            logger.error(f"Unknown extractor: {name}")
+            return None
+        
+        try:
+            return extractor_class(config)
+        except Exception as e:
+            logger.error(f"Failed to create extractor {name}: {e}")
+            return None
+    
+    def create_enabled_extractors(self, config: ImkbConfig) -> List[BaseExtractor]:
+        """Create instances of all enabled extractors"""
+        extractors = []
+        
+        for name in config.extractors.enabled:
+            extractor = self.create_extractor(name, config)
+            if extractor and extractor.is_enabled():
+                extractors.append(extractor)
+                logger.info(f"Enabled extractor: {name}")
+            else:
+                logger.warning(f"Failed to enable extractor: {name}")
+        
+        return extractors
+
+
+# Global registry instance
+registry = ExtractorRegistry()
+
+
+def register_extractor(extractor_class: type) -> type:
+    """Decorator for registering extractor classes"""
+    registry.register(extractor_class)
+    return extractor_class

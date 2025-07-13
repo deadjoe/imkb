@@ -1,0 +1,51 @@
+[project]
+name = "imkb"
+version = "0.1.0"
+description = "AI-powered incident knowledge base and root cause analysis SDK for operations"
+readme = "README.md"
+authors = [
+    { name = "Joe", email = "smartjoe@gmail.com" }
+]
+requires-python = ">=3.9"
+dependencies = [
+    "pydantic>=2.0",
+    "pydantic-settings>=2.0",
+    "jinja2>=3.0",
+    "aiofiles>=23.0",
+    "httpx>=0.24",
+    "orjson>=3.8",
+    "click>=8.0",
+    "mem0ai>=0.1.100",
+    "qdrant-client>=1.7",
+    "neo4j>=5.0",
+    "pyyaml>=6.0.2",
+]
+
+[project.optional-dependencies]
+mem0 = ["mem0ai>=0.1.100", "qdrant-client>=1.7"]
+graph = ["neo4j>=5.0"]
+kb = ["pysolr>=3.9", "playwright>=1.40"]
+llm-gpu = ["llama-cpp-python>=0.2"]
+cloud-llm = ["openai>=1.0"]
+telemetry = ["opentelemetry-api>=1.20", "opentelemetry-sdk>=1.20", "opentelemetry-exporter-otlp>=1.20", "prometheus-client>=0.17"]
+all = ["imkb[mem0,graph,kb,llm-gpu,cloud-llm,telemetry]"]
+
+[project.scripts]
+imkb = "imkb.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.1",
+    "pytest-asyncio>=1.0.0",
+    "pytest-cov>=6.2.1",
+]
+telemetry = [
+    "opentelemetry-api>=1.35.0",
+    "opentelemetry-exporter-otlp>=1.35.0",
+    "opentelemetry-sdk>=1.35.0",
+    "prometheus-client>=0.22.1",
+]

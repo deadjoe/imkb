@@ -1,0 +1,26 @@
+version: "v1"
+description: "MySQL-specific RCA analysis prompt for database incidents"
+min_llm_context_window: 6144
+inputs:
+  - event
+  - snippets
+  - database_type
+  - common_issues
+  - diagnostic_commands
+  - solution_patterns
+output_schema: "RCAResult"
+template_type: "mysql_rca_analysis"
+extractor: "mysqlkb"
+created_date: "2025-01-15"
+updated_date: "2025-01-15"
+tags:
+  - "mysql"
+  - "database"
+  - "rca"
+  - "production"
+specializations:
+  - "connection_management"
+  - "performance_tuning"
+  - "replication_issues"
+  - "deadlock_analysis"
+  - "memory_management"

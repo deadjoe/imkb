@@ -1,0 +1,15 @@
+version: "v1"
+description: "Test RCA analysis prompt for development and validation"
+min_llm_context_window: 4096
+inputs:
+  - event
+  - snippets
+output_schema: "RCAResult"
+template_type: "rca_analysis"
+extractor: "test"
+created_date: "2025-01-01"
+updated_date: "2025-01-01"
+tags:
+  - "test"
+  - "rca"
+  - "development"
