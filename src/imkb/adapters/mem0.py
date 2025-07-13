@@ -12,29 +12,9 @@ from contextlib import asynccontextmanager
 from mem0 import Memory
 
 from ..config import ImkbConfig
+from ..models import KBItem
 
 logger = logging.getLogger(__name__)
-
-
-class KBItem:
-    """Knowledge base item representation"""
-    
-    def __init__(self, doc_id: str, excerpt: str, score: float, metadata: Optional[Dict[str, Any]] = None):
-        self.doc_id = doc_id
-        self.excerpt = excerpt
-        self.score = score
-        self.metadata = metadata or {}
-    
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "doc_id": self.doc_id,
-            "excerpt": self.excerpt,
-            "score": self.score,
-            "metadata": self.metadata
-        }
-    
-    def __repr__(self) -> str:
-        return f"KBItem(doc_id='{self.doc_id}', score={self.score:.3f})"
 
 
 class Mem0Adapter:

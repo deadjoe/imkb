@@ -418,14 +418,16 @@ class TestCLIIntegration:
             
             try:
                 # Step 1: Generate RCA
-                rca_result = self.runner.invoke(get_rca, ['--event-file', event_file.name])
-                assert rca_result.exit_code == 0
-                assert "Database connection timeout" in rca_result.output
+                rca_cli_result = self.runner.invoke(get_rca, ['--event-file', event_file.name])
+                assert rca_cli_result.exit_code == 0
+                assert "Database connection timeout" in rca_cli_result.output
                 
                 # In real workflow, RCA would be saved to file
                 with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as rca_file:
+                    # We use the mock rca_result dict, not the CLI output object
                     json.dump(rca_result, rca_file)
                     rca_file.flush()
+                    rca_filepath = rca_file.name
                     
                     try:
                         # Step 2: Generate playbook from RCA

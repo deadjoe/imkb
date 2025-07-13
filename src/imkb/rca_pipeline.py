@@ -13,9 +13,10 @@ import jinja2
 import yaml
 
 from .config import ImkbConfig, get_config
-from .extractors import registry, Event, KBItem
+from .extractors import registry
 from .llm_client import LLMRouter, LLMResponse
 from .adapters.mem0 import Mem0Adapter
+from .models import Event, KBItem
 
 # Import observability if available
 try:
@@ -100,7 +101,7 @@ class RCAResult:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "RCAResult":
         """Create RCAResult from dictionary"""
-        references = [KBItem(doc_id=ref.get("doc_id", "unknown"), excerpt=ref.get("excerpt", ""), score=ref.get("score", 0.0), metadata=ref.get("metadata", {})) for ref in data.get("references", [])]
+        references = [KBItem.model_validate(ref) for ref in data.get("references", [])]
         return cls(
             root_cause=data["root_cause"],
             confidence=data["confidence"],
@@ -354,7 +355,7 @@ async def get_rca(event_data: Dict[str, Any], namespace: str = "default") -> Dic
     with trace_operation("rca.pipeline") as span:
         try:
             # Create Event object
-            event = Event.from_dict(event_data)
+            event = Event.model_validate(event_data)
             set_attribute("event.id", event.id)
             set_attribute("event.namespace", namespace)
             

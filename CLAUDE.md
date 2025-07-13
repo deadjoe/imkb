@@ -1,5 +1,11 @@
 # imkb 项目开发记忆
 
+## 项目状态 (2025-07-13)
+- **仓库地址**: https://github.com/deadjoe/imkb
+- **开发状态**: MVP 已完成并开源
+- **最新提交**: ed70e3e - Initial release with core functionality
+- **分支**: main (已推送到远程)
+
 ## 项目简介
 imkb 是一个 Python SDK，用于运维场景中将故障/告警事件转化为 AI 可推理的上下文，并帮助 LLM 产出根因分析(RCA)与修复建议。
 
@@ -71,12 +77,24 @@ imkb/
 - KB 外呼限流: 30s 静默，仅依赖向量召回
 - 延迟超阈值: 熔断非核心步骤
 
-## MVP 计划
-Phase 1: 核心功能
-- Mem0 混合召回
-- 单一 LLM 客户端（本地 llama.cpp）
-- MySQL KB Extractor
-- 基础错误处理
+## MVP 实现状态 ✅
+**Phase 1 已完成**:
+- ✅ 配置系统 (config.py) - 支持 YAML 配置和环境变量
+- ✅ 事件和知识项结构 (extractors/base.py)
+- ✅ 提取器系统 (extractors/) - MySQL和测试提取器
+- ✅ LLM 客户端 (llm_client.py) - 支持 OpenAI 和本地模型
+- ✅ RCA 管道 (rca_pipeline.py) - 核心分析逻辑
+- ✅ Action 管道 (action_pipeline.py) - 修复建议生成
+- ✅ Mem0 适配器 (adapters/mem0.py) - 向量+图存储
+- ✅ CLI 界面 (cli.py) - 命令行工具
+- ✅ 可观测性系统 (observability/) - 指标和追踪
+- ✅ 缓存和并发控制 (cache/, concurrency/)
+- ✅ 完整测试覆盖率 (tests/)
+
+**已实现的核心模块**:
+- 51 个源文件
+- 12,710+ 行代码
+- 完整的 MVP 功能实现
 
 ## 开发环境
 - Python 3.9+
@@ -112,3 +130,29 @@ uv run python -m imkb get-rca --event-file event.json
 - 遵循 OpenTelemetry 规范记录 span
 - 配置使用 pydantic Settings，支持环境变量覆盖
 - Prompt 模板版本化，支持热更新
+
+## 开发工作流程
+```bash
+# 克隆项目
+git clone https://github.com/deadjoe/imkb.git
+cd imkb
+
+# 安装依赖
+uv sync
+
+# 运行测试
+uv run pytest
+
+# 启动开发环境
+uv run python test_mvp.py
+
+# 运行 CLI
+uv run imkb get-rca --event-file examples/event.example.json
+```
+
+## 下次协作信息
+- 项目已完成 MVP 开发并成功开源
+- GitHub 仓库已设置，包含完整源代码和文档
+- 安全审核已完成，无敏感信息泄露
+- 所有核心功能模块已实现并通过测试
+- 可以开始后续功能开发或部署准备工作

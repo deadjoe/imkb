@@ -12,7 +12,8 @@ from pathlib import Path
 from .config import ImkbConfig, get_config
 from .llm_client import LLMRouter, LLMResponse
 from .rca_pipeline import RCAResult
-from .adapters.mem0 import Mem0Adapter, KBItem
+from .adapters.mem0 import Mem0Adapter
+from .models import KBItem
 
 logger = logging.getLogger(__name__)
 

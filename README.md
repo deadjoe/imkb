@@ -1,5 +1,9 @@
 # imkb
 
+[![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![GitHub](https://img.shields.io/github/stars/deadjoe/imkb?style=social)](https://github.com/deadjoe/imkb)
+
 **AI-powered incident knowledge base and root cause analysis SDK for operations**
 
 imkb is a Python SDK that transforms incident/alert events into AI-inferrable context and helps local or remote LLMs generate root cause analysis (RCA) and remediation suggestions.
@@ -135,30 +139,6 @@ extractors:
 
 See [examples/imkb.example.yml](examples/imkb.example.yml) for full configuration options.
 
-## Development Status
-
-**Current**: Project initialization and design phase
-**Next**: MVP implementation with Mem0 hybrid recall
-
-### Roadmap
-
-- **Phase 1**: Core recall + inference (Q1 2024)
-  - Mem0 hybrid vector+graph storage
-  - Single LLM client (local llama.cpp)
-  - MySQL KB extractor
-  - Basic error handling
-
-- **Phase 2**: Production features (Q2 2024)  
-  - Multi-tenant isolation
-  - OpenTelemetry observability
-  - Multi-LLM routing
-  - Action pipeline
-
-- **Phase 3**: Extensions (Q3 2024)
-  - Additional extractors
-  - Web UI
-  - Performance optimizations
-
 ## Documentation
 
 - [Design Document](DESIGN.md) - Detailed architecture and design decisions
@@ -170,7 +150,7 @@ This project uses [uv](https://docs.astral.sh/uv/) for dependency management:
 
 ```bash
 # Clone and setup
-git clone <repo>
+git clone https://github.com/deadjoe/imkb.git
 cd imkb
 uv sync
 
@@ -187,7 +167,7 @@ uv run isort src/ tests/
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+Apache License 2.0 - see [LICENSE](LICENSE) for details.
 
 ## Related Projects
 

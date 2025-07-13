@@ -16,6 +16,9 @@ sys.path.insert(0, str(Path(__file__).parent / "src"))
 from imkb import get_rca
 from imkb.config import ImkbConfig
 
+import pytest
+
+@pytest.mark.asyncio
 async def test_basic_rca():
     """Test basic RCA functionality"""
     print("🔍 Testing basic RCA pipeline...")
@@ -63,6 +66,7 @@ async def test_basic_rca():
         traceback.print_exc()
         return False
 
+@pytest.mark.asyncio
 async def test_config_loading():
     """Test configuration loading"""
     print("⚙️ Testing configuration loading...")
@@ -82,6 +86,7 @@ async def test_config_loading():
         print(f"❌ Config loading failed: {e}")
         return False
 
+@pytest.mark.asyncio
 async def test_extractor_registry():
     """Test extractor registry"""
     print("🔌 Testing extractor registry...")
@@ -108,6 +113,7 @@ async def test_extractor_registry():
         print(f"❌ Extractor registry test failed: {e}")
         return False
 
+@pytest.mark.asyncio
 async def test_llm_client():
     """Test LLM client with mock provider"""
     print("🤖 Testing LLM client...")
@@ -136,6 +142,7 @@ async def test_llm_client():
         print(f"❌ LLM client test failed: {e}")
         return False
 
+@pytest.mark.asyncio
 async def test_infrastructure():
     """Test infrastructure connectivity"""
     print("🏗️ Testing infrastructure connectivity...")

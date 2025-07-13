@@ -8,72 +8,10 @@ from typing import Any, Dict, List, Optional, Protocol, runtime_checkable
 from abc import ABC, abstractmethod
 import logging
 
-from ..adapters.mem0 import KBItem
 from ..config import ImkbConfig
+from ..models import Event, KBItem
 
 logger = logging.getLogger(__name__)
-
-
-class Event:
-    """Event data structure for incident/alert information"""
-    
-    def __init__(
-        self,
-        id: str,
-        signature: str,
-        timestamp: str,
-        severity: str,
-        source: str,
-        labels: Dict[str, str],
-        message: str,
-        raw: Optional[Dict[str, Any]] = None,
-        context_hash: Optional[str] = None,
-        embedding_version: str = "v1.0"
-    ):
-        self.id = id
-        self.signature = signature
-        self.timestamp = timestamp
-        self.severity = severity
-        self.source = source
-        self.labels = labels
-        self.message = message
-        self.raw = raw or {}
-        self.context_hash = context_hash
-        self.embedding_version = embedding_version
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert event to dictionary representation"""
-        return {
-            "id": self.id,
-            "signature": self.signature,
-            "timestamp": self.timestamp,
-            "severity": self.severity,
-            "source": self.source,
-            "labels": self.labels,
-            "message": self.message,
-            "raw": self.raw,
-            "context_hash": self.context_hash,
-            "embedding_version": self.embedding_version
-        }
-    
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Event":
-        """Create Event from dictionary"""
-        return cls(
-            id=data["id"],
-            signature=data["signature"],
-            timestamp=data["timestamp"],
-            severity=data["severity"],
-            source=data["source"],
-            labels=data["labels"],
-            message=data["message"],
-            raw=data.get("raw", {}),
-            context_hash=data.get("context_hash"),
-            embedding_version=data.get("embedding_version", "v1.0")
-        )
-    
-    def __repr__(self) -> str:
-        return f"Event(id='{self.id}', signature='{self.signature}', severity='{self.severity}')"
 
 
 @runtime_checkable
