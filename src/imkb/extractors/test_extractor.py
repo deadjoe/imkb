@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 @register_extractor
 class TestExtractor(ExtractorBase):
+    __test__ = False  # Prevent pytest from collecting this as a test class
     """
     Test extractor for development and validation
     

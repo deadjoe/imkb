@@ -306,13 +306,13 @@ class TestRCAPipeline:
         )
         
         # Mock extractor
-        mock_extractor = MagicMock()
+        mock_extractor = AsyncMock()
         mock_knowledge = [
             KBItem(doc_id="kb_005", excerpt="Knowledge 1", score=0.8),
             KBItem(doc_id="kb_006", excerpt="Knowledge 2", score=0.7)
         ]
         mock_extractor.recall = AsyncMock(return_value=mock_knowledge)
-        mock_extractor.get_max_results.return_value = 5
+        mock_extractor.get_max_results = MagicMock(return_value=5)
         
         knowledge = await self.pipeline.recall_knowledge(event, mock_extractor)
         
@@ -328,7 +328,7 @@ class TestRCAPipeline:
         # Mock extractor that raises exception
         mock_extractor = AsyncMock()
         mock_extractor.recall.side_effect = Exception("Recall failed")
-        mock_extractor.get_max_results.return_value = 5
+        mock_extractor.get_max_results = MagicMock(return_value=5)
         
         knowledge = await self.pipeline.recall_knowledge(event, mock_extractor)
         
@@ -410,7 +410,7 @@ This analysis indicates a clear memory issue."""
         knowledge_items = [KBItem(doc_id="kb_008", excerpt="Test knowledge", score=0.8)]
         
         # Mock extractor
-        mock_extractor = MagicMock()
+        mock_extractor = AsyncMock()
         mock_extractor.name = "test"
         mock_extractor.prompt_template = "test_rca:v1"
         mock_extractor.get_prompt_context.return_value = {
@@ -424,7 +424,7 @@ This analysis indicates a clear memory issue."""
             model="gpt-4"
         )
         
-        with patch.object(self.pipeline.llm_router, 'generate', return_value=mock_llm_response):
+        with patch.object(self.pipeline.llm_router, 'generate', new=AsyncMock(return_value=mock_llm_response)):
             with patch.object(self.pipeline.prompt_manager, 'render_template', return_value="Test prompt"):
                 result = await self.pipeline.generate_rca(event, mock_extractor, knowledge_items)
         
@@ -440,7 +440,7 @@ This analysis indicates a clear memory issue."""
         knowledge_items = []
         
         # Mock extractor that raises exception
-        mock_extractor = MagicMock()
+        mock_extractor = AsyncMock()
         mock_extractor.name = "test"
         mock_extractor.get_prompt_context.side_effect = Exception("Context error")
         
@@ -465,7 +465,7 @@ class TestGetRCAFunction:
         mock_pipeline_class.return_value = mock_pipeline
         
         # Mock extractor
-        mock_extractor = MagicMock()
+        mock_extractor = AsyncMock()
         mock_extractor.name = "test"
         mock_pipeline.find_matching_extractor.return_value = mock_extractor
         
