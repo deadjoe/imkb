@@ -23,7 +23,6 @@ from .config import TelemetryConfig
 
 logger = logging.getLogger(__name__)
 
-# Global tracer instance
 _tracer: Optional[trace.Tracer] = None
 _config: Optional[TelemetryConfig] = None
 
@@ -41,14 +40,11 @@ def initialize_tracing(config: TelemetryConfig) -> None:
 
     _config = config
 
-    # Create resource with service information
     resource = Resource.create(config.get_resource_attributes())
 
-    # Create tracer provider with sampling
     sampler = TraceIdRatioBased(config.tracing.sample_rate)
     provider = TracerProvider(resource=resource, sampler=sampler)
 
-    # Configure OTLP exporter if endpoint is provided
     if config.should_export_traces():
         try:
             otlp_exporter = OTLPSpanExporter(
@@ -57,7 +53,6 @@ def initialize_tracing(config: TelemetryConfig) -> None:
                 insecure=config.tracing.otlp_insecure,
             )
 
-            # Add batch span processor
             span_processor = BatchSpanProcessor(otlp_exporter)
             provider.add_span_processor(span_processor)
 
@@ -67,10 +62,8 @@ def initialize_tracing(config: TelemetryConfig) -> None:
         except Exception as e:
             logger.error(f"Failed to configure OTLP exporter: {e}")
 
-    # Set the tracer provider
     trace.set_tracer_provider(provider)
 
-    # Get tracer instance
     _tracer = trace.get_tracer(
         instrumenting_module_name="imkb",
         instrumenting_library_version=config.tracing.service_version,
@@ -84,7 +77,6 @@ def initialize_tracing(config: TelemetryConfig) -> None:
 def get_tracer() -> trace.Tracer:
     """Get the configured tracer instance"""
     if _tracer is None:
-        # Return no-op tracer if not initialized
         return trace.NoOpTracer()
     return _tracer
 
@@ -159,7 +151,6 @@ def trace_async(
                 except Exception as e:
                     # Don't fail the operation if recording args fails
                     logger.debug(f"Failed to record trace args: {e}")
-                    pass
 
             with trace_operation(name, span_attributes) as span:
                 start_time = time.time()
@@ -181,7 +172,6 @@ def trace_async(
                         except Exception as e:
                             # Don't fail the operation if recording result fails
                             logger.debug(f"Failed to record trace result: {e}")
-                            pass
 
                     return result
 
@@ -233,7 +223,6 @@ def trace_sync(
                             span_attributes[f"kwarg.{key}"] = value
                 except Exception as e:
                     logger.debug(f"Failed to record async trace args: {e}")
-                    pass
 
             with trace_operation(name, span_attributes) as span:
                 start_time = time.time()
@@ -254,7 +243,6 @@ def trace_sync(
                                 span.set_attribute("result.length", len(result))
                         except Exception as e:
                             logger.debug(f"Failed to record async trace result: {e}")
-                            pass
 
                     return result
 

@@ -39,11 +39,9 @@ class MemoryCache(CacheBackend):
         self.max_size = max_size
         self.cleanup_interval = cleanup_interval
 
-        # Thread-safe storage using OrderedDict for LRU
         self._cache: OrderedDict[str, CacheEntry] = OrderedDict()
         self._lock = threading.RLock()
 
-        # Statistics
         self._stats = {
             "hits": 0,
             "misses": 0,
@@ -53,7 +51,6 @@ class MemoryCache(CacheBackend):
             "expires": 0,
         }
 
-        # Start cleanup task
         self._cleanup_task = None
         self._start_cleanup_task()
 
@@ -68,15 +65,12 @@ class MemoryCache(CacheBackend):
                 except asyncio.CancelledError:
                     break
                 except Exception as e:
-                    # Continue cleanup even if individual cleanup fails
                     logger.debug(f"Cache cleanup failed: {e}")
-                    pass
 
         try:
             loop = asyncio.get_event_loop()
             self._cleanup_task = loop.create_task(cleanup_loop())
         except RuntimeError:
-            # No event loop running, cleanup will happen on access
             pass
 
     async def get(self, key: CacheKey) -> Optional[CacheEntry]:
@@ -91,14 +85,12 @@ class MemoryCache(CacheBackend):
                 self._stats["misses"] += 1
                 return None
 
-            # Check if expired
             if entry.is_expired(current_time):
                 del self._cache[key_str]
                 self._stats["misses"] += 1
                 self._stats["expires"] += 1
                 return None
 
-            # Move to end (most recently used)
             self._cache.move_to_end(key_str)
             entry.increment_hit_count()
             self._stats["hits"] += 1
@@ -128,15 +120,12 @@ class MemoryCache(CacheBackend):
         )
 
         with self._lock:
-            # Remove existing entry if present
             if key_str in self._cache:
                 del self._cache[key_str]
 
-            # Add new entry
             self._cache[key_str] = entry
             self._cache.move_to_end(key_str)
 
-            # Evict oldest entries if over limit
             while len(self._cache) > self.max_size:
                 oldest_key = next(iter(self._cache))
                 del self._cache[oldest_key]
@@ -160,11 +149,9 @@ class MemoryCache(CacheBackend):
         """Clear cache entries"""
         with self._lock:
             if pattern is None:
-                # Clear all entries
                 count = len(self._cache)
                 self._cache.clear()
                 return count
-            # Clear entries matching pattern
             keys_to_delete = [key for key in self._cache if pattern in key]
 
             for key in keys_to_delete:
@@ -214,7 +201,6 @@ class MemoryCache(CacheBackend):
                     self._stats["expires"] += 1
                     results[key] = None
                 else:
-                    # Move to end (most recently used)
                     self._cache.move_to_end(key_str)
                     entry.increment_hit_count()
                     self._stats["hits"] += 1
@@ -239,11 +225,9 @@ class MemoryCache(CacheBackend):
             for key, value in items.items():
                 key_str = key.to_string()
 
-                # Remove existing entry if present
                 if key_str in self._cache:
                     del self._cache[key_str]
 
-                # Add new entry
                 entry = CacheEntry(
                     value=value,
                     created_at=current_time,
@@ -255,7 +239,6 @@ class MemoryCache(CacheBackend):
                 self._cache.move_to_end(key_str)
                 self._stats["sets"] += 1
 
-            # Evict oldest entries if over limit
             while len(self._cache) > self.max_size:
                 oldest_key = next(iter(self._cache))
                 del self._cache[oldest_key]

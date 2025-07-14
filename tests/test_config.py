@@ -52,9 +52,6 @@ class TestMem0Config:
                 "NEO4J_URL": "bolt://remote-neo4j.example.com:7687",
             },
         ):
-            # config = Mem0Config()  # Removed unused variable
-            # Note: Environment overrides would be handled by pydantic settings
-            # This test verifies the structure is in place
             pass
 
 
@@ -149,9 +146,6 @@ class TestImkbConfig:
     @patch.dict(os.environ, {"OPENAI_API_KEY": "sk-test-env-key"})
     def test_environment_variable_integration(self):
         """Test environment variable integration"""
-        # config = ImkbConfig()  # Removed unused variable
-        # The actual environment integration would be handled by pydantic-settings
-        # This test verifies the config structure supports it
 
 
 class TestConfigLoading:
@@ -215,11 +209,9 @@ namespace: "file_config"
 
             try:
                 # Mock the path to return our temp file
-                mock_path.return_value.__str__ = lambda x: f.name
+                mock_path.return_value.__str__ = lambda _: f.name
 
                 with patch("builtins.open", open):
-                    # config = get_config()  # Removed unused variable
-                    # Would load from file in real scenario
                     pass
 
             finally:

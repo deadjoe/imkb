@@ -441,7 +441,6 @@ class TestCLIIntegration:
                     # We use the mock rca_result dict, not the CLI output object
                     json.dump(rca_result, rca_file)
                     rca_file.flush()
-                    # rca_filepath = rca_file.name  # Removed unused variable
 
                     try:
                         # Step 2: Generate playbook from RCA
