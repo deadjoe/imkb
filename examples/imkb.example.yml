@@ -35,14 +35,20 @@ extractors:
   enabled:
     - rhokp
     - mysqlkb
-  rhokp:
-    solr_url: "https://access.redhat.com/search"
-    timeout: 5.0
-    max_results: 10
-  mysqlkb:
-    connection_string: "${MYSQL_KB_URL}"
-    timeout: 3.0
-    cache_ttl: 3600
+  extractors:
+    rhokp:
+      timeout: 5.0
+      max_results: 10
+      enabled: true
+      config:
+        solr_url: "https://access.redhat.com/search"
+    mysqlkb:
+      timeout: 3.0
+      max_results: 10
+      enabled: true
+      config:
+        connection_string: "${MYSQL_KB_URL}"
+        cache_ttl: 3600
 
 features:
   mem0_graph: true        # Enable graph storage for relationship modeling

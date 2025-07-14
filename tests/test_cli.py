@@ -375,11 +375,11 @@ class TestConfigCommand:
         assert "Use --show to display current configuration" in result.output
 
     def test_config_show_placeholder(self):
-        """Test config --show command (placeholder implementation)"""
+        """Test config --show command (actual implementation)"""
         result = self.runner.invoke(config, ["--show"])
 
         assert result.exit_code == 0
-        assert "Configuration management coming soon!" in result.output
+        assert "Current imkb Configuration" in result.output
 
 
 class TestCLIIntegration:

@@ -101,8 +101,8 @@ class TestExtractorsConfig:
     def test_default_config(self):
         """Test default extractors configuration"""
         config = ExtractorsConfig()
-        assert "test" in config.enabled
-        assert len(config.enabled) == 1  # Only "test" is enabled by default
+        assert "mysqlkb" in config.enabled
+        assert len(config.enabled) == 1  # Only "mysqlkb" is enabled by default
 
     def test_custom_enabled_extractors(self):
         """Test custom enabled extractors"""

@@ -6,6 +6,7 @@ Orchestrates the flow from event input to RCA result generation.
 
 import json
 import logging
+import re
 from pathlib import Path
 from typing import Any, Optional
 
@@ -15,7 +16,7 @@ import yaml
 from .config import ImkbConfig, get_config
 from .extractors import registry
 from .llm_client import LLMResponse, LLMRouter
-from .models import Event, KBItem
+from .models import Event, KBItem, RCAResult
 
 # Import observability if available
 try:
@@ -55,76 +56,83 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-class RCAResult:
-    """Root Cause Analysis result structure"""
+def extract_json_from_text(text: str) -> Optional[dict[str, Any]]:
+    """
+    Intelligently extract JSON from text that may contain markdown,
+    explanations, or other content around the JSON.
+    """
+    # Strategy 1: Look for json code blocks
+    json_block_pattern = r"```(?:json)?\s*(\{.*?\})\s*```"
+    matches = re.findall(json_block_pattern, text, re.DOTALL | re.IGNORECASE)
 
-    def __init__(
-        self,
-        root_cause: str,
-        confidence: float,
-        extractor: str,
-        references: list[KBItem],
-        status: str = "SUCCESS",
-        contributing_factors: Optional[list[str]] = None,
-        evidence: Optional[list[str]] = None,
-        immediate_actions: Optional[list[str]] = None,
-        preventive_measures: Optional[list[str]] = None,
-        additional_investigation: Optional[list[str]] = None,
-        confidence_reasoning: Optional[str] = None,
-        knowledge_gaps: Optional[list[str]] = None,
-        metadata: Optional[dict[str, Any]] = None,
-    ):
-        self.root_cause = root_cause
-        self.confidence = confidence
-        self.extractor = extractor
-        self.references = references
-        self.status = status
-        self.contributing_factors = contributing_factors or []
-        self.evidence = evidence or []
-        self.immediate_actions = immediate_actions or []
-        self.preventive_measures = preventive_measures or []
-        self.additional_investigation = additional_investigation or []
-        self.confidence_reasoning = confidence_reasoning or ""
-        self.knowledge_gaps = knowledge_gaps or []
-        self.metadata = metadata or {}
+    for match in matches:
+        try:
+            return json.loads(match)
+        except json.JSONDecodeError:
+            continue
 
-    def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary representation"""
-        return {
-            "root_cause": self.root_cause,
-            "confidence": self.confidence,
-            "extractor": self.extractor,
-            "references": [ref.to_dict() for ref in self.references],
-            "status": self.status,
-            "contributing_factors": self.contributing_factors,
-            "evidence": self.evidence,
-            "immediate_actions": self.immediate_actions,
-            "preventive_measures": self.preventive_measures,
-            "additional_investigation": self.additional_investigation,
-            "confidence_reasoning": self.confidence_reasoning,
-            "knowledge_gaps": self.knowledge_gaps,
-            "metadata": self.metadata,
-        }
+    # Strategy 2: Look for JSON objects in the text
+    # Find all potential JSON objects by looking for balanced braces
+    brace_stack = []
+    start_pos = None
 
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "RCAResult":
-        """Create RCAResult from dictionary"""
-        references = [KBItem.model_validate(ref) for ref in data.get("references", [])]
-        return cls(
-            root_cause=data["root_cause"],
-            confidence=data["confidence"],
-            extractor=data["extractor"],
-            references=references,
-            status=data.get("status", "SUCCESS"),
-            contributing_factors=data.get("contributing_factors", []),
-            evidence=data.get("evidence", []),
-            immediate_actions=data.get("immediate_actions", []),
-            preventive_measures=data.get("preventive_measures", []),
-            additional_investigation=data.get("additional_investigation", []),
-            confidence_reasoning=data.get("confidence_reasoning", ""),
-            knowledge_gaps=data.get("knowledge_gaps", []),
-            metadata=data.get("metadata", {}),
-        )
+    for i, char in enumerate(text):
+        if char == "{":
+            if not brace_stack:
+                start_pos = i
+            brace_stack.append(char)
+        elif char == "}":
+            if brace_stack:
+                brace_stack.pop()
+                if not brace_stack and start_pos is not None:
+                    # Found a complete JSON object
+                    json_candidate = text[start_pos:i+1]
+                    try:
+                        return json.loads(json_candidate)
+                    except json.JSONDecodeError:
+                        # Continue looking for other JSON objects
+                        start_pos = None
+                        continue
+
+    # Strategy 3: Try to parse the entire text as JSON
+    try:
+        return json.loads(text.strip())
+    except json.JSONDecodeError:
+        pass
+
+    # Strategy 4: Look for key-value patterns and construct JSON
+    # This is a last resort for badly formatted responses
+    patterns = {
+        "root_cause": r'"?root_cause"?\s*:\s*"([^"]+)"',
+        "confidence": r'"?confidence"?\s*:\s*([0-9.]+)',
+        "contributing_factors": r'"?contributing_factors"?\s*:\s*\[([^\]]+)\]',
+        "evidence": r'"?evidence"?\s*:\s*\[([^\]]+)\]',
+        "immediate_actions": r'"?immediate_actions"?\s*:\s*\[([^\]]+)\]',
+    }
+
+    fallback_data = {}
+    for key, pattern in patterns.items():
+        match = re.search(pattern, text, re.IGNORECASE | re.DOTALL)
+        if match:
+            value = match.group(1)
+            if key == "confidence":
+                try:
+                    fallback_data[key] = float(value)
+                except ValueError:
+                    fallback_data[key] = 0.5
+            elif key in ["contributing_factors", "evidence", "immediate_actions"]:
+                # Simple list parsing
+                items = [item.strip().strip('"') for item in value.split(",")]
+                fallback_data[key] = items
+            else:
+                fallback_data[key] = value
+
+    if fallback_data:
+        return fallback_data
+
+    return None
+
+
 
 
 class PromptManager:
@@ -256,30 +264,11 @@ class RCAPipeline:
     ) -> RCAResult:
         """Parse LLM response into structured RCAResult"""
         try:
-            # Try to extract JSON from the response
-            content = response.content.strip()
+            # Use intelligent JSON extraction
+            parsed_data = extract_json_from_text(response.content)
 
-            # Look for JSON block in the response
-            if "```json" in content:
-                start_idx = content.find("```json") + 7
-                end_idx = content.find("```", start_idx)
-                if end_idx != -1:
-                    json_content = content[start_idx:end_idx].strip()
-                else:
-                    json_content = content[start_idx:].strip()
-            elif content.startswith("{") and content.endswith("}"):
-                json_content = content
-            else:
-                # Fallback: look for JSON-like structure
-                start_idx = content.find("{")
-                end_idx = content.rfind("}") + 1
-                if start_idx != -1 and end_idx > start_idx:
-                    json_content = content[start_idx:end_idx]
-                else:
-                    raise ValueError("No JSON structure found in response")
-
-            # Parse JSON
-            parsed_data = json.loads(json_content)
+            if not parsed_data:
+                raise ValueError("No JSON structure found in response")
 
             # Create RCAResult from parsed data
             return RCAResult(
@@ -303,7 +292,7 @@ class RCAPipeline:
                     "llm_model": response.model,
                     "tokens_used": response.tokens_used,
                     "raw_response": (
-                        content[:500] + "..." if len(content) > 500 else content
+                        response.content[:500] + "..." if len(response.content) > 500 else response.content
                     ),
                 },
             )

@@ -83,9 +83,21 @@ class ExtractorConfig(BaseModel):
 class ExtractorsConfig(BaseModel):
     """All extractors configuration"""
 
-    enabled: list[str] = Field(default_factory=lambda: ["test"])
-    test: ExtractorConfig = Field(default_factory=ExtractorConfig)
-    mysqlkb: ExtractorConfig = Field(default_factory=ExtractorConfig)
+    enabled: list[str] = Field(default_factory=lambda: ["mysqlkb"])
+    extractors: dict[str, ExtractorConfig] = Field(default_factory=lambda: {
+        "test": ExtractorConfig(),
+        "mysqlkb": ExtractorConfig()
+    })
+
+    def __getattr__(self, name: str) -> ExtractorConfig:
+        """Allow accessing extractor configs as attributes for backward compatibility"""
+        if name in self.extractors:
+            return self.extractors[name]
+        raise AttributeError(f"No extractor config for '{name}'")
+
+    def get_extractor_config(self, name: str) -> ExtractorConfig:
+        """Get extractor configuration by name"""
+        return self.extractors.get(name, ExtractorConfig())
 
 
 class FeaturesConfig(BaseModel):
