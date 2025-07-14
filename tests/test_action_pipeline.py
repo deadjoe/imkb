@@ -312,11 +312,17 @@ This should resolve the issue."""
             model="gpt-4",
         )
 
-        with patch.object(
-            self.pipeline, "search_similar_actions", return_value=mock_similar_actions
-        ), patch.object(
-            self.pipeline.llm_router, "generate", return_value=mock_llm_response
-        ), patch.object(self.pipeline, "_store_action_plan") as mock_store:
+        with (
+            patch.object(
+                self.pipeline,
+                "search_similar_actions",
+                return_value=mock_similar_actions,
+            ),
+            patch.object(
+                self.pipeline.llm_router, "generate", return_value=mock_llm_response
+            ),
+            patch.object(self.pipeline, "_store_action_plan") as mock_store,
+        ):
             result = await self.pipeline.generate_actions(self.rca_result)
 
         assert isinstance(result, ActionResult)

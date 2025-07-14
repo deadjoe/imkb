@@ -144,7 +144,9 @@ class AsyncSemaphore:
         # Using private members is necessary for semaphore inspection
         current_value = self._semaphore._value  # noqa: SLF001
         waiting_count = (
-            len(self._semaphore._waiters) if hasattr(self._semaphore, "_waiters") else 0  # noqa: SLF001
+            len(self._semaphore._waiters)
+            if hasattr(self._semaphore, "_waiters")
+            else 0  # noqa: SLF001
         )
 
         # Calculate average hold time
@@ -279,7 +281,8 @@ class SemaphoreManager:
                 remaining_timeout = timeout
                 if timeout is not None and acquired:
                     elapsed = sum(
-                        time.time() - s._active_acquisitions.get(0, time.time())  # noqa: SLF001
+                        time.time()
+                        - s._active_acquisitions.get(0, time.time())  # noqa: SLF001
                         for s in acquired
                     )
                     remaining_timeout = max(0, timeout - elapsed)
