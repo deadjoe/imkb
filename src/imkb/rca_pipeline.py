@@ -86,7 +86,7 @@ def extract_json_from_text(text: str) -> Optional[dict[str, Any]]:
                 brace_stack.pop()
                 if not brace_stack and start_pos is not None:
                     # Found a complete JSON object
-                    json_candidate = text[start_pos:i+1]
+                    json_candidate = text[start_pos : i + 1]
                     try:
                         return json.loads(json_candidate)
                     except json.JSONDecodeError:
@@ -131,8 +131,6 @@ def extract_json_from_text(text: str) -> Optional[dict[str, Any]]:
         return fallback_data
 
     return None
-
-
 
 
 class PromptManager:
@@ -292,7 +290,9 @@ class RCAPipeline:
                     "llm_model": response.model,
                     "tokens_used": response.tokens_used,
                     "raw_response": (
-                        response.content[:500] + "..." if len(response.content) > 500 else response.content
+                        response.content[:500] + "..."
+                        if len(response.content) > 500
+                        else response.content
                     ),
                 },
             )

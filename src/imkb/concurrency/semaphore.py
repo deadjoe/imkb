@@ -96,7 +96,6 @@ class AsyncSemaphore:
         acquisition_id = self._next_acquisition_id
         self._next_acquisition_id += 1
 
-
         try:
             if timeout is not None:
                 await asyncio.wait_for(self._semaphore.acquire(), timeout=timeout)
