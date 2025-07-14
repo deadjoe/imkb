@@ -43,9 +43,197 @@ dev = [
     "pytest-asyncio>=1.0.0",
     "pytest-cov>=6.2.1",
 ]
+lint = [
+    "black>=24.0.0",
+    "isort>=5.13.0",
+    "mypy>=1.8.0",
+    "ruff>=0.8.0",
+    "pre-commit>=3.6.0",
+]
+types = [
+    "types-pyyaml>=6.0.0",
+    "types-click>=7.1.0",
+    "types-orjson>=3.6.0",
+]
 telemetry = [
     "opentelemetry-api>=1.35.0",
     "opentelemetry-exporter-otlp>=1.35.0",
     "opentelemetry-sdk>=1.35.0",
     "prometheus-client>=0.22.1",
+]
+
+# Black configuration
+[tool.black]
+line-length = 88
+target-version = ['py39']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+# isort configuration
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 88
+known_first_party = ["imkb"]
+sections = ["FUTURE", "STDLIB", "THIRDPARTY", "FIRSTPARTY", "LOCALFOLDER"]
+
+# mypy configuration
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = false
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = [
+    "mem0.*",
+    "qdrant_client.*",
+    "neo4j.*",
+    "pysolr.*",
+    "playwright.*",
+    "llama_cpp.*",
+    "openai.*",
+    "prometheus_client.*",
+]
+ignore_missing_imports = true
+
+# Ruff configuration
+[tool.ruff]
+line-length = 88
+target-version = "py39"
+extend-exclude = [
+    ".eggs",
+    ".git",
+    ".mypy_cache",
+    ".tox",
+    ".venv",
+    "build",
+    "dist",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "B",  # flake8-bugbear
+    "C4", # flake8-comprehensions
+    "UP", # pyupgrade
+    "ARG", # flake8-unused-arguments
+    "SIM", # flake8-simplify
+    "TCH", # flake8-type-checking
+    "TID", # flake8-tidy-imports
+    "Q",  # flake8-quotes
+    "FBT", # flake8-boolean-trap
+    "PIE", # flake8-pie
+    "PYI", # flake8-pyi
+    "PT",  # flake8-pytest-style
+    "RSE", # flake8-raise
+    "RET", # flake8-return
+    "SLF", # flake8-self
+    "S",   # flake8-bandit
+    "N",   # pep8-naming
+    "ERA", # eradicate
+]
+ignore = [
+    "S101", # Use of assert
+    "S608", # Possible SQL injection
+    "B008", # Do not perform function calls in argument defaults
+    "FBT001", # Boolean positional arg in function definition
+    "FBT002", # Boolean default value in function definition
+    "FBT003", # Boolean positional value in function call
+    "S105", # Possible hardcoded password
+    "S106", # Possible hardcoded password
+    "S107", # Possible hardcoded password
+    "ARG001", # Unused function argument
+    "ARG002", # Unused method argument
+    "N806", # Variable in function should be lowercase
+    "N803", # Argument name should be lowercase
+    "PIE800", # Unnecessary spread operator
+    "SIM108", # Use ternary operator instead of if-else
+    "UP007", # Use X | Y for type unions
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+    "S101", # Use of assert
+    "ARG001", # Unused function argument
+    "ARG002", # Unused method argument
+    "FBT001", # Boolean positional arg in function definition
+    "PT004", # Fixture does not return anything
+    "PT011", # pytest.raises should specify expected exception
+    "SLF001", # Private member accessed
+]
+
+# pytest configuration
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",
+    "--tb=short",
+    "--strict-markers",
+    "--disable-warnings",
+    "--cov=src/imkb",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+    "--cov-report=xml",
+]
+markers = [
+    "asyncio: marks tests as async",
+    "unit: marks tests as unit tests",
+    "integration: marks tests as integration tests",
+    "slow: marks tests as slow",
+]
+
+# Coverage configuration
+[tool.coverage.run]
+source = ["src"]
+branch = true
+omit = [
+    "tests/*",
+    "src/imkb/__init__.py",
+    "*/venv/*",
+    "*/.venv/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+    "\\.\\.\\.",
+    "pass",
 ]

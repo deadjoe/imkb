@@ -5,9 +5,8 @@ Provides pydantic-based configuration with environment variable support
 and YAML file loading capabilities.
 """
 
-from typing import Any, Dict, List, Optional
 from pathlib import Path
-import os
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -15,6 +14,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 # Import observability config if available
 try:
     from .observability.config import TelemetryConfig
+
     TELEMETRY_AVAILABLE = True
 except ImportError:
     TelemetryConfig = None
@@ -23,6 +23,7 @@ except ImportError:
 
 class VectorStoreConfig(BaseModel):
     """Vector store configuration"""
+
     provider: str = "qdrant"
     host: str = "localhost"
     port: int = 6333
@@ -32,6 +33,7 @@ class VectorStoreConfig(BaseModel):
 
 class GraphStoreConfig(BaseModel):
     """Graph store configuration"""
+
     provider: str = "neo4j"
     url: str = "neo4j://localhost:7687"
     username: str = "neo4j"
@@ -41,6 +43,7 @@ class GraphStoreConfig(BaseModel):
 
 class Mem0Config(BaseModel):
     """Mem0 hybrid storage configuration"""
+
     vector_store: VectorStoreConfig = Field(default_factory=VectorStoreConfig)
     graph_store: GraphStoreConfig = Field(default_factory=GraphStoreConfig)
     history_db_path: Optional[str] = None
@@ -49,6 +52,7 @@ class Mem0Config(BaseModel):
 
 class LLMRouterConfig(BaseModel):
     """Single LLM router configuration"""
+
     provider: str = "openai"  # "openai", "llama_cpp", etc.
     model: str = "gpt-4o-mini"
     api_key: Optional[str] = "sk-placeholder-test-key"
@@ -62,24 +66,27 @@ class LLMRouterConfig(BaseModel):
 
 class LLMConfig(BaseModel):
     """LLM configuration"""
+
     default: str = "openai_default"
-    routers: Dict[str, LLMRouterConfig] = Field(default_factory=lambda: {
-        "openai_default": LLMRouterConfig()
-    })
+    routers: dict[str, LLMRouterConfig] = Field(
+        default_factory=lambda: {"openai_default": LLMRouterConfig()}
+    )
 
 
 class ExtractorConfig(BaseModel):
     """Individual extractor configuration"""
+
     timeout: float = 5.0
     max_results: int = 10
     enabled: bool = True
     # Additional extractor-specific config
-    config: Dict[str, Any] = Field(default_factory=dict)
+    config: dict[str, Any] = Field(default_factory=dict)
 
 
 class ExtractorsConfig(BaseModel):
     """All extractors configuration"""
-    enabled: List[str] = Field(default_factory=lambda: ["test"])
+
+    enabled: list[str] = Field(default_factory=lambda: ["test"])
     test: ExtractorConfig = Field(default_factory=ExtractorConfig)
     mysqlkb: ExtractorConfig = Field(default_factory=ExtractorConfig)
     # rhokp: ExtractorConfig = Field(default_factory=ExtractorConfig)
@@ -87,6 +94,7 @@ class ExtractorsConfig(BaseModel):
 
 class FeaturesConfig(BaseModel):
     """Feature flags configuration"""
+
     mem0_graph: bool = True
     solr_kb: bool = False
     playwright_kb: bool = False
@@ -96,6 +104,7 @@ class FeaturesConfig(BaseModel):
 
 class TelemetryConfig(BaseModel):
     """Telemetry and observability configuration"""
+
     otlp_endpoint: Optional[str] = None
     enable_metrics: bool = False
     enable_tracing: bool = False
@@ -105,6 +114,7 @@ class TelemetryConfig(BaseModel):
 
 class PerformanceConfig(BaseModel):
     """Performance settings"""
+
     recall_timeout: float = 2.0
     llm_timeout: float = 10.0
     max_concurrent: int = 5
@@ -112,6 +122,7 @@ class PerformanceConfig(BaseModel):
 
 class SecurityConfig(BaseModel):
     """Security settings"""
+
     enable_audit_log: bool = True
     max_prompt_length: int = 4096
     sanitize_inputs: bool = True
@@ -119,15 +130,15 @@ class SecurityConfig(BaseModel):
 
 class ImkbConfig(BaseSettings):
     """Main imkb configuration"""
-    
+
     model_config = SettingsConfigDict(
         env_prefix="IMKB_",
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
-        extra="ignore"
+        extra="ignore",
     )
-    
+
     # Core configuration sections
     mem0: Mem0Config = Field(default_factory=Mem0Config)
     llm: LLMConfig = Field(default_factory=LLMConfig)
@@ -136,27 +147,27 @@ class ImkbConfig(BaseSettings):
     telemetry: TelemetryConfig = Field(default_factory=TelemetryConfig)
     performance: PerformanceConfig = Field(default_factory=PerformanceConfig)
     security: SecurityConfig = Field(default_factory=SecurityConfig)
-    
+
     # Global settings
     namespace: str = "default"
     log_level: str = "INFO"
-    
+
     @classmethod
     def load_from_file(cls, config_path: str = "imkb.yml") -> "ImkbConfig":
         """Load configuration from YAML file with environment variable override"""
         import yaml
-        
+
         config_file = Path(config_path)
         config_data = {}
-        
+
         if config_file.exists():
-            with open(config_file, 'r', encoding='utf-8') as f:
+            with open(config_file, encoding="utf-8") as f:
                 config_data = yaml.safe_load(f) or {}
-        
+
         # Create instance with file data, env vars will override automatically
         return cls(**config_data)
-    
-    def get_mem0_config(self) -> Dict[str, Any]:
+
+    def get_mem0_config(self) -> dict[str, Any]:
         """Get Mem0-compatible configuration dict"""
         return {
             "vector_store": {
@@ -166,7 +177,7 @@ class ImkbConfig(BaseSettings):
                     "port": self.mem0.vector_store.port,
                     "collection_name": self.mem0.vector_store.collection_name,
                     "embedding_model_dims": self.mem0.vector_store.embedding_model_dims,
-                }
+                },
             },
             "graph_store": {
                 "provider": self.mem0.graph_store.provider,
@@ -175,12 +186,14 @@ class ImkbConfig(BaseSettings):
                     "username": self.mem0.graph_store.username,
                     "password": self.mem0.graph_store.password,
                     "database": self.mem0.graph_store.database,
-                }
+                },
             },
             "version": self.mem0.version,
         }
-    
-    def get_llm_router_config(self, router_name: Optional[str] = None) -> LLMRouterConfig:
+
+    def get_llm_router_config(
+        self, router_name: Optional[str] = None
+    ) -> LLMRouterConfig:
         """Get LLM router configuration"""
         router_name = router_name or self.llm.default
         if router_name not in self.llm.routers:

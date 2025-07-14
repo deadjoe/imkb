@@ -146,23 +146,58 @@ See [examples/imkb.example.yml](examples/imkb.example.yml) for full configuratio
 
 ## Contributing
 
-This project uses [uv](https://docs.astral.sh/uv/) for dependency management:
+This project uses [uv](https://docs.astral.sh/uv/) for dependency management and modern Python tooling:
 
 ```bash
 # Clone and setup
 git clone https://github.com/deadjoe/imkb.git
 cd imkb
-uv sync
-
-# Install development dependencies
-uv add --dev pytest pytest-asyncio black isort mypy
+uv sync --group dev --group lint --group types
 
 # Run tests
 uv run pytest
 
-# Format code
-uv run black src/ tests/
-uv run isort src/ tests/
+# Code formatting and linting
+make format        # Format code with black and isort
+make lint          # Run all linting tools
+make type-check    # Run mypy type checking
+make security-check # Run bandit security checks
+make check         # Run all checks (lint, type, security)
+
+# Or run tools individually
+uv run black .
+uv run isort .
+uv run ruff check --fix .
+uv run mypy src/
+uv run bandit -r src/
+
+# Pre-commit hooks (optional but recommended)
+make pre-commit-install
+make pre-commit-run
+```
+
+### Code Quality Tools
+
+This project uses modern Python tooling for code quality:
+
+- **[Black](https://github.com/psf/black)**: Code formatting
+- **[isort](https://github.com/pycqa/isort)**: Import sorting
+- **[Ruff](https://github.com/astral-sh/ruff)**: Fast Python linter (replaces flake8, pylint)
+- **[MyPy](https://github.com/python/mypy)**: Static type checking
+- **[Bandit](https://github.com/PyCQA/bandit)**: Security vulnerability scanner
+- **[Pre-commit](https://github.com/pre-commit/pre-commit)**: Git hooks for code quality
+
+### Testing
+
+```bash
+# Run tests with coverage
+make test-cov
+
+# Run specific test files
+uv run pytest tests/test_rca_pipeline.py -v
+
+# Run tests with markers
+uv run pytest -m "not slow"
 ```
 
 ## License

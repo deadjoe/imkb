@@ -6,15 +6,15 @@ to improve performance and reduce external API calls.
 """
 
 from .base import CacheBackend, CacheKey
+from .manager import CacheManager, get_cache_manager
 from .memory import MemoryCache
 from .redis_cache import RedisCache
-from .manager import CacheManager, get_cache_manager
 
 __all__ = [
     "CacheBackend",
-    "CacheKey", 
+    "CacheKey",
     "MemoryCache",
     "RedisCache",
     "CacheManager",
-    "get_cache_manager"
+    "get_cache_manager",
 ]
