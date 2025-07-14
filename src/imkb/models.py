@@ -62,3 +62,23 @@ class RCAResult(BaseModel):
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation"""
         return self.model_dump()
+
+
+class ActionResult(BaseModel):
+    """Action pipeline result structure"""
+
+    actions: list[str]
+    playbook: str
+    priority: str = "medium"
+    estimated_time: Optional[str] = None
+    risk_level: str = "low"
+    prerequisites: list[str] = Field(default_factory=list)
+    validation_steps: list[str] = Field(default_factory=list)
+    rollback_plan: Optional[str] = None
+    automation_potential: str = "manual"
+    confidence: float = Field(default=0.8, ge=0.0, le=1.0)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary representation"""
+        return self.model_dump()

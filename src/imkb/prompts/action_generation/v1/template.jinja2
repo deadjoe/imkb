@@ -1,0 +1,67 @@
+You are an expert Site Reliability Engineer creating actionable remediation plans.
+
+Based on the root cause analysis provided, generate a comprehensive action plan.
+
+## Root Cause Analysis
+**Root Cause**: {{ root_cause }}
+**Confidence**: {{ confidence }}
+**Extractor**: {{ extractor }}
+
+**Immediate Actions from RCA**:
+{% for action in immediate_actions -%}
+- {{ action }}
+{% endfor %}
+
+**Preventive Measures from RCA**:
+{% for measure in preventive_measures -%}
+- {{ measure }}
+{% endfor %}
+
+**Contributing Factors**:
+{% for factor in contributing_factors -%}
+- {{ factor }}
+{% endfor %}
+
+{% if has_similar_actions %}
+## Similar Past Actions
+{% for action in similar_actions -%}
+- {{ action.excerpt[:100] }}...
+{% endfor %}
+{% endif %}
+
+## Generate Action Plan
+Provide a comprehensive action plan in JSON format:
+
+```json
+{
+  "actions": [
+    "Specific actionable step 1 with clear execution instructions",
+    "Specific actionable step 2 with clear execution instructions",
+    "Specific actionable step 3 with clear execution instructions"
+  ],
+  "playbook": "Detailed step-by-step playbook with commands, expected outputs, and decision points",
+  "priority": "high|medium|low",
+  "estimated_time": "Time estimate for completion (e.g., '15 minutes', '2 hours')",
+  "risk_level": "low|medium|high",
+  "prerequisites": [
+    "Prerequisites needed before starting remediation",
+    "Access requirements or tools needed"
+  ],
+  "validation_steps": [
+    "How to verify the issue is resolved",
+    "Metrics or indicators to check"
+  ],
+  "rollback_plan": "Plan to revert changes if remediation causes issues",
+  "automation_potential": "manual|semi-automated|fully-automated"
+}
+```
+
+## Guidelines
+1. **Be Specific**: Provide exact commands, parameters, and expected results
+2. **Risk Assessment**: Consider potential impact of each action
+3. **Validation**: Include verification steps to confirm resolution
+4. **Safety**: Always include rollback procedures for high-risk actions
+5. **Prioritization**: Order actions by urgency and impact
+6. **Context Awareness**: Consider the extractor type ({{ extractor }}) and tailor actions accordingly
+
+Generate the action plan now:

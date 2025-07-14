@@ -100,7 +100,7 @@ class TestActionResult:
             "metadata": {"test": "value"},
         }
 
-        result = ActionResult.from_dict(data)
+        result = ActionResult.model_validate(data)
 
         assert result.actions == ["Action A", "Action B"]
         assert result.playbook == "Step-by-step playbook"

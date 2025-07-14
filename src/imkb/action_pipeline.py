@@ -11,73 +11,11 @@ from typing import Any, Optional
 from .adapters.mem0 import Mem0Adapter
 from .config import ImkbConfig, get_config
 from .llm_client import LLMResponse, LLMRouter
-from .models import KBItem, RCAResult
-from .rca_pipeline import extract_json_from_text
+from .models import ActionResult, KBItem, RCAResult
+from .rca_pipeline import PromptManager, extract_json_from_text
 
 logger = logging.getLogger(__name__)
 
-
-class ActionResult:
-    """Action pipeline result structure"""
-
-    def __init__(
-        self,
-        actions: list[str],
-        playbook: str,
-        priority: str = "medium",
-        estimated_time: Optional[str] = None,
-        risk_level: str = "low",
-        prerequisites: Optional[list[str]] = None,
-        validation_steps: Optional[list[str]] = None,
-        rollback_plan: Optional[str] = None,
-        automation_potential: str = "manual",
-        confidence: float = 0.8,
-        metadata: Optional[dict[str, Any]] = None,
-    ):
-        self.actions = actions
-        self.playbook = playbook
-        self.priority = priority
-        self.estimated_time = estimated_time
-        self.risk_level = risk_level
-        self.prerequisites = prerequisites or []
-        self.validation_steps = validation_steps or []
-        self.rollback_plan = rollback_plan
-        self.automation_potential = automation_potential
-        self.confidence = confidence
-        self.metadata = metadata or {}
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary representation"""
-        return {
-            "actions": self.actions,
-            "playbook": self.playbook,
-            "priority": self.priority,
-            "estimated_time": self.estimated_time,
-            "risk_level": self.risk_level,
-            "prerequisites": self.prerequisites,
-            "validation_steps": self.validation_steps,
-            "rollback_plan": self.rollback_plan,
-            "automation_potential": self.automation_potential,
-            "confidence": self.confidence,
-            "metadata": self.metadata,
-        }
-
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ActionResult":
-        """Create ActionResult from dictionary"""
-        return cls(
-            actions=data["actions"],
-            playbook=data["playbook"],
-            priority=data.get("priority", "medium"),
-            estimated_time=data.get("estimated_time"),
-            risk_level=data.get("risk_level", "low"),
-            prerequisites=data.get("prerequisites", []),
-            validation_steps=data.get("validation_steps", []),
-            rollback_plan=data.get("rollback_plan"),
-            automation_potential=data.get("automation_potential", "manual"),
-            confidence=data.get("confidence", 0.8),
-            metadata=data.get("metadata", {}),
-        )
 
 
 class ActionPipeline:
@@ -91,6 +29,7 @@ class ActionPipeline:
         self.config = config or get_config()
         self.llm_router = LLMRouter(self.config)
         self.mem0_adapter = Mem0Adapter(self.config)
+        self.prompt_manager = PromptManager()
 
     async def search_similar_actions(
         self, rca_result: RCAResult, limit: int = 5
@@ -131,65 +70,19 @@ class ActionPipeline:
         }
 
     def _render_action_prompt(self, context: dict[str, Any]) -> str:
-        """Render action generation prompt"""
-        # For now, use a simple template. In production, this would use Jinja2
-        return f"""You are an expert Site Reliability Engineer creating actionable remediation plans.
+        """Render action generation prompt using Jinja2 template"""
+        try:
+            template = self.prompt_manager.get_template(
+                "action_generation/v1/template.jinja2"
+            )
+            return template.render(**context)
+        except Exception as e:
+            logger.error(f"Failed to render action prompt: {e}")
+            # Fallback to basic template
+            return f"""Generate actionable remediation plan for: {context['root_cause']}
 
-Based on the root cause analysis provided, generate a comprehensive action plan.
-
-## Root Cause Analysis
-**Root Cause**: {context['root_cause']}
-**Confidence**: {context['confidence']}
-**Extractor**: {context['extractor']}
-
-**Immediate Actions from RCA**:
-{chr(10).join(f"- {action}" for action in context['immediate_actions'])}
-
-**Preventive Measures from RCA**:
-{chr(10).join(f"- {measure}" for measure in context['preventive_measures'])}
-
-**Contributing Factors**:
-{chr(10).join(f"- {factor}" for factor in context['contributing_factors'])}
-
-{"## Similar Past Actions" if context['has_similar_actions'] else ""}
-{chr(10).join(f"- {action['excerpt'][:100]}..." for action in context['similar_actions']) if context['has_similar_actions'] else ""}
-
-## Generate Action Plan
-Provide a comprehensive action plan in JSON format:
-
-```json
-{{
-  "actions": [
-    "Specific actionable step 1 with clear execution instructions",
-    "Specific actionable step 2 with clear execution instructions",
-    "Specific actionable step 3 with clear execution instructions"
-  ],
-  "playbook": "Detailed step-by-step playbook with commands, expected outputs, and decision points",
-  "priority": "high|medium|low",
-  "estimated_time": "Time estimate for completion (e.g., '15 minutes', '2 hours')",
-  "risk_level": "low|medium|high",
-  "prerequisites": [
-    "Prerequisites needed before starting remediation",
-    "Access requirements or tools needed"
-  ],
-  "validation_steps": [
-    "How to verify the issue is resolved",
-    "Metrics or indicators to check"
-  ],
-  "rollback_plan": "Plan to revert changes if remediation causes issues",
-  "automation_potential": "manual|semi-automated|fully-automated"
-}}
-```
-
-## Guidelines
-1. **Be Specific**: Provide exact commands, parameters, and expected results
-2. **Risk Assessment**: Consider potential impact of each action
-3. **Validation**: Include verification steps to confirm resolution
-4. **Safety**: Always include rollback procedures for high-risk actions
-5. **Prioritization**: Order actions by urgency and impact
-6. **Context Awareness**: Consider the extractor type ({context['extractor']}) and tailor actions accordingly
-
-Generate the action plan now:"""
+Based on the analysis, provide a JSON response with actions, playbook,
+priority, and other details."""
 
     def _parse_action_response(
         self, response: LLMResponse, rca_result: RCAResult
@@ -228,7 +121,10 @@ Generate the action plan now:"""
             return ActionResult(
                 actions=rca_result.immediate_actions
                 or ["Manual investigation required"],
-                playbook=f"Automated playbook generation failed. Manual analysis needed for: {rca_result.root_cause}",
+                playbook=(
+                    f"Automated playbook generation failed. "
+                    f"Manual analysis needed for: {rca_result.root_cause}"
+                ),
                 priority="medium",
                 risk_level="unknown",
                 confidence=0.3,
@@ -273,7 +169,10 @@ Generate the action plan now:"""
             return ActionResult(
                 actions=rca_result.immediate_actions
                 or ["Manual investigation required"],
-                playbook=f"Action generation error: {str(e)}. Please investigate manually based on RCA findings.",
+                playbook=(
+                    f"Action generation error: {str(e)}. "
+                    "Please investigate manually based on RCA findings."
+                ),
                 priority="medium",
                 confidence=0.2,
                 metadata={"error": str(e), "fallback": True},

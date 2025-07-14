@@ -73,6 +73,8 @@ class AsyncSemaphore:
         self.name = name
         self.capacity = value
         self._semaphore = asyncio.Semaphore(value)
+        self._current_value = value  # Track current value ourselves
+        self._waiting_count = 0  # Track waiting count ourselves
 
         self._total_acquisitions = 0
         self._total_timeouts = 0
@@ -97,11 +99,16 @@ class AsyncSemaphore:
         self._next_acquisition_id += 1
 
         try:
-            if timeout is not None:
-                await asyncio.wait_for(self._semaphore.acquire(), timeout=timeout)
-            else:
-                await self._semaphore.acquire()
+            self._waiting_count += 1
+            try:
+                if timeout is not None:
+                    await asyncio.wait_for(self._semaphore.acquire(), timeout=timeout)
+                else:
+                    await self._semaphore.acquire()
+            finally:
+                self._waiting_count -= 1
 
+            self._current_value -= 1
             acquire_time = time.time()
             self._active_acquisitions[acquisition_id] = acquire_time
             self._total_acquisitions += 1
@@ -118,6 +125,7 @@ class AsyncSemaphore:
                     del self._active_acquisitions[acquisition_id]
 
                 self._semaphore.release()
+                self._current_value += 1
                 logger.debug(f"Semaphore '{self.name}' released (id={acquisition_id})")
 
         except asyncio.TimeoutError:
@@ -129,18 +137,10 @@ class AsyncSemaphore:
 
     def locked(self) -> bool:
         """Check if semaphore is at capacity (no permits available)"""
-        # Using private member is necessary for semaphore inspection
-        return self._semaphore._value == 0  # noqa: SLF001
+        return self._current_value == 0
 
     def get_stats(self) -> SemaphoreStats:
         """Get detailed semaphore statistics"""
-        current_value = self._semaphore._value  # noqa: SLF001
-        waiting_count = (
-            len(self._semaphore._waiters)
-            if hasattr(self._semaphore, "_waiters")
-            else 0  # noqa: SLF001
-        )
-
         avg_hold_time = (
             sum(self._hold_times) / len(self._hold_times) if self._hold_times else 0.0
         )
@@ -148,8 +148,8 @@ class AsyncSemaphore:
         return SemaphoreStats(
             name=self.name,
             capacity=self.capacity,
-            current_value=current_value,
-            waiting_count=waiting_count,
+            current_value=self._current_value,
+            waiting_count=self._waiting_count,
             total_acquisitions=self._total_acquisitions,
             total_timeouts=self._total_timeouts,
             average_hold_time=avg_hold_time,
@@ -268,11 +268,8 @@ class SemaphoreManager:
             for semaphore in sorted_semaphores:
                 remaining_timeout = timeout
                 if timeout is not None and acquired:
-                    elapsed = sum(
-                        time.time()
-                        - s._active_acquisitions.get(0, time.time())  # noqa: SLF001
-                        for s in acquired
-                    )
+                    # Simple timeout reduction based on acquisition count
+                    elapsed = len(acquired) * 0.1  # Approximate elapsed time
                     remaining_timeout = max(0, timeout - elapsed)
 
                 await semaphore.acquire(remaining_timeout).__aenter__()
@@ -283,7 +280,9 @@ class SemaphoreManager:
         except Exception:
             for semaphore in reversed(acquired):
                 try:
-                    semaphore._semaphore.release()  # noqa: SLF001
+                    # Use proper release mechanism
+                    semaphore._semaphore.release()
+                    semaphore._current_value += 1
                 except Exception as e:
                     logger.error(f"Error releasing semaphore during cleanup: {e}")
             raise

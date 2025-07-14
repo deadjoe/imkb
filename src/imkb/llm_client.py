@@ -5,10 +5,14 @@ Supports both local and cloud-based LLMs with unified interface.
 """
 
 import asyncio
+import json
 import logging
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any, Optional
+
+import yaml
 
 from .config import ImkbConfig, LLMRouterConfig
 
@@ -224,26 +228,46 @@ class MockLLMClient(BaseLLMClient):
 
     def __init__(self, config: LLMRouterConfig):
         super().__init__(config)
-        self.response_templates = {
-            "rca": """Based on the incident analysis, I can identify the following:
+        self._load_mock_responses()
 
-## Root Cause Analysis
-The primary cause appears to be {primary_cause}. This is typically associated with {associated_factors}.
-
-## Confidence Assessment
-Confidence: {confidence}% - {confidence_reason}
-
-## Recommended Actions
-1. {action_1}
-2. {action_2}
-3. {action_3}
-
-## Additional Context
-{additional_context}
-
-*Note: This is a mock response for development purposes.*""",
-            "default": "This is a mock LLM response for testing purposes. Original prompt: {prompt_preview}...",
-        }
+    def _load_mock_responses(self):
+        """Load mock responses from external YAML file"""
+        try:
+            mock_responses_path = (
+                Path(__file__).parent / "prompts" / "mock_responses.yaml"
+            )
+            with open(mock_responses_path) as f:
+                self.mock_responses = yaml.safe_load(f)
+        except Exception as e:
+            logger.warning(f"Failed to load mock responses: {e}")
+            # Fallback to simple default responses
+            self.mock_responses = {
+                "rca": {
+                    "root_cause": "Mock RCA analysis for testing",
+                    "confidence": 0.7,
+                    "contributing_factors": ["Mock factor 1", "Mock factor 2"],
+                    "evidence": ["Mock evidence"],
+                    "immediate_actions": ["Mock action"],
+                    "preventive_measures": ["Mock prevention"],
+                    "additional_investigation": ["Mock investigation"],
+                    "confidence_reasoning": "Mock reasoning",
+                    "knowledge_gaps": ["Mock gap"]
+                },
+                "action_generation": {
+                    "actions": ["Mock action 1", "Mock action 2"],
+                    "playbook": "Mock playbook for testing",
+                    "priority": "medium",
+                    "estimated_time": "10 minutes",
+                    "risk_level": "low",
+                    "prerequisites": ["Mock prerequisite"],
+                    "validation_steps": ["Mock validation"],
+                    "rollback_plan": "Mock rollback plan",
+                    "automation_potential": "manual"
+                },
+                "default": {
+                    "content": "Mock LLM response for testing purposes"
+                }
+            }
 
     async def generate(
         self,
@@ -255,75 +279,16 @@ Confidence: {confidence}% - {confidence_reason}
         """Generate mock response"""
         await asyncio.sleep(0.1)  # Simulate network delay
 
-        template = self.response_templates.get(
-            template_type, self.response_templates["default"]
+        # Get response template
+        response_data = self.mock_responses.get(
+            template_type, self.mock_responses["default"]
         )
 
-        # Generate contextual mock data
-        if template_type == "rca":
-            # Return a properly formatted JSON response for RCA
-            content = """{
-  "root_cause": "Resource contention or configuration issue based on the incident signature",
-  "confidence": 0.75,
-  "contributing_factors": [
-    "High concurrent connection load",
-    "Insufficient connection pool sizing",
-    "Potential connection leaks in application code"
-  ],
-  "evidence": [
-    "Connection pool exhaustion signature indicates resource limits reached",
-    "MySQL-specific symptoms match known capacity issues"
-  ],
-  "immediate_actions": [
-    "Investigate current connection usage patterns",
-    "Review application connection handling",
-    "Consider temporary pool size increase"
-  ],
-  "preventive_measures": [
-    "Implement connection pooling best practices",
-    "Add monitoring for connection pool metrics",
-    "Review and optimize application connection lifecycle"
-  ],
-  "additional_investigation": [
-    "Analyze connection growth patterns over time",
-    "Review application deployment history"
-  ],
-  "confidence_reasoning": "Based on common patterns in similar database connectivity incidents",
-  "knowledge_gaps": [
-    "Actual connection usage metrics at time of incident",
-    "Application-specific connection handling details"
-  ]
-}"""
-        elif template_type == "action_generation":
-            # Return properly formatted JSON for action generation
-            content = """{
-  "actions": [
-    "Execute SHOW PROCESSLIST to identify active connections and blocking queries",
-    "Increase max_connections parameter from 150 to 300 temporarily",
-    "Identify and terminate long-running or idle connections using KILL command",
-    "Review application connection pool configuration and increase pool size",
-    "Implement connection monitoring and alerting for proactive management"
-  ],
-  "playbook": "1. Immediate Assessment: Run 'SHOW PROCESSLIST' and 'SHOW STATUS LIKE \\"Threads_connected\\"' to assess current state. 2. Emergency Relief: Increase max_connections to 300 with 'SET GLOBAL max_connections = 300'. 3. Connection Cleanup: Identify problematic connections and terminate using 'KILL <connection_id>'. 4. Application Review: Check application connection pools and increase timeout settings. 5. Monitoring Setup: Implement alerts for connection usage above 80% threshold. 6. Validation: Verify new connections can be established and application functionality restored.",
-  "priority": "high",
-  "estimated_time": "30 minutes",
-  "risk_level": "medium",
-  "prerequisites": [
-    "MySQL administrative access",
-    "Application deployment pipeline access",
-    "Monitoring system configuration access"
-  ],
-  "validation_steps": [
-    "Verify new database connections can be established",
-    "Check application error logs for connection failures",
-    "Monitor connection count remains below new threshold",
-    "Confirm all application services are operational"
-  ],
-  "rollback_plan": "If issues arise, revert max_connections to original value (150) and restart MySQL service if necessary",
-  "automation_potential": "semi-automated"
-}"""
+        # Generate appropriate response based on template type
+        if template_type in ["rca", "action_generation"]:
+            content = json.dumps(response_data, indent=2)
         else:
-            content = template.format(prompt_preview=prompt[:100])
+            content = response_data.get("content", f"Mock response for {template_type}")
 
         return LLMResponse(
             content=content,
