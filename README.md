@@ -200,6 +200,148 @@ uv run pytest tests/test_rca_pipeline.py -v
 uv run pytest -m "not slow"
 ```
 
+### Pre-commit Hooks Usage
+
+Pre-commit is a powerful automation tool that runs code quality checks before each commit. Here's how to use it effectively:
+
+#### 🔧 Initial Setup (One-time)
+
+```bash
+# Install pre-commit hooks to git repository
+uv run pre-commit install
+
+# Optional: Install hooks for push and commit messages
+uv run pre-commit install --hook-type pre-push
+uv run pre-commit install --hook-type commit-msg
+```
+
+#### 📝 Daily Workflow
+
+**Normal Development and Commits**
+```bash
+# After modifying code
+git add .
+git commit -m "your commit message"
+# ↑ pre-commit runs automatically, checking your code
+```
+
+**When Checks Fail**
+```bash
+# pre-commit will:
+# - Auto-fix fixable issues (formatting)
+# - Show manual fixes needed
+# - Block the commit
+
+# Review auto-fixes
+git diff
+
+# If satisfied with fixes, re-add and commit
+git add .
+git commit -m "your commit message"
+```
+
+#### 🛠️ Common Commands
+
+**Manual Checks (Recommended before committing)**
+```bash
+# Check all files
+uv run pre-commit run --all-files
+
+# Check only staged files
+uv run pre-commit run
+
+# Run specific hooks
+uv run pre-commit run black
+uv run pre-commit run ruff
+uv run pre-commit run mypy
+```
+
+**Managing Hooks**
+```bash
+# Update hooks to latest versions
+uv run pre-commit autoupdate
+
+# Clean cache (useful for troubleshooting)
+uv run pre-commit clean
+
+# Uninstall hooks
+uv run pre-commit uninstall
+```
+
+#### 📋 Configured Checks
+
+Our pre-commit setup automatically runs:
+
+1. **Basic Checks**
+   - YAML syntax validation
+   - Trailing whitespace removal
+   - End-of-file newline enforcement
+   - Large file detection
+
+2. **Code Formatting**
+   - **Black**: Automatic Python code formatting
+   - **isort**: Import statement sorting
+
+3. **Code Quality**
+   - **Ruff**: Fast linting checks
+   - **MyPy**: Static type checking
+   - **Bandit**: Security vulnerability scanning
+
+4. **Testing**
+   - **pytest**: Run test suite to ensure functionality
+
+#### 💡 Best Practices
+
+**Pre-commit Checks**
+```bash
+# Run checks before committing (recommended)
+uv run pre-commit run --all-files
+git add .
+git commit -m "feature: add new functionality"
+```
+
+**Emergency Bypass**
+```bash
+# Skip pre-commit in emergencies only
+git commit -m "urgent fix" --no-verify
+```
+
+**Troubleshooting Failures**
+```bash
+# If MyPy type checking fails
+uv run mypy src/  # View specific errors
+# Fix type issues, then recommit
+
+# If tests fail  
+uv run pytest -v  # Run tests to see issues
+# Fix failing tests, then recommit
+```
+
+**Team Setup**
+```bash
+# After cloning the project
+git clone <repo>
+cd <repo>
+uv sync  # Install dependencies
+uv run pre-commit install  # Install hooks
+```
+
+#### ⚡ Quick Fixes
+
+```bash
+# Format code only
+uv run black .
+uv run isort .
+
+# Quick ruff fixes
+uv run ruff check . --fix
+
+# Run specific tests
+uv run pytest tests/test_specific.py
+```
+
+This setup ensures consistent code quality and smooth team collaboration!
+
 ## License
 
 Apache License 2.0 - see [LICENSE](LICENSE) for details.
