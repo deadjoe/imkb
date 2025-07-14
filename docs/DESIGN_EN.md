@@ -163,12 +163,20 @@ class KBItem(TypedDict):
 ### RCA Result
 
 ```python
-class RCAResult(TypedDict):
+class RCAResult(BaseModel):
     root_cause: str          # Root cause analysis text
-    confidence: float        # 0.0-1.0 confidence level
+    confidence: float = Field(ge=0.0, le=1.0)  # 0.0-1.0 confidence level
     extractor: str           # Name of extractor used
-    references: list[KBItem] # Referenced knowledge snippets
-    status: Literal["SUCCESS", "NO_CONTEXT", "LLM_UNAVAILABLE"]
+    references: list[KBItem] = Field(default_factory=list) # Referenced knowledge snippets
+    status: str = "SUCCESS"  # SUCCESS|PARSE_ERROR|NO_CONTEXT|LLM_ERROR
+    contributing_factors: list[str] = Field(default_factory=list)     # Contributing factors
+    evidence: list[str] = Field(default_factory=list)                 # Evidence chain
+    immediate_actions: list[str] = Field(default_factory=list)        # Immediate actions
+    preventive_measures: list[str] = Field(default_factory=list)      # Preventive measures
+    additional_investigation: list[str] = Field(default_factory=list) # Additional investigation points
+    confidence_reasoning: str = ""           # Confidence reasoning
+    knowledge_gaps: list[str] = Field(default_factory=list)           # Knowledge gaps
+    metadata: dict[str, Any] = Field(default_factory=dict)            # Metadata
 ```
 
 ## Extractor Architecture

@@ -163,12 +163,20 @@ class KBItem(TypedDict):
 ### RCA Result
 
 ```python
-class RCAResult(TypedDict):
+class RCAResult(BaseModel):
     root_cause: str          # 根因分析文本
-    confidence: float        # 0.0-1.0 置信度
+    confidence: float = Field(ge=0.0, le=1.0)  # 0.0-1.0 置信度
     extractor: str           # 使用的提取器名称
-    references: list[KBItem] # 引用的知识片段
-    status: Literal["SUCCESS", "NO_CONTEXT", "LLM_UNAVAILABLE"]
+    references: list[KBItem] = Field(default_factory=list) # 引用的知识片段
+    status: str = "SUCCESS"  # SUCCESS|PARSE_ERROR|NO_CONTEXT|LLM_ERROR
+    contributing_factors: list[str] = Field(default_factory=list)     # 贡献因素
+    evidence: list[str] = Field(default_factory=list)                 # 证据链
+    immediate_actions: list[str] = Field(default_factory=list)        # 立即行动
+    preventive_measures: list[str] = Field(default_factory=list)      # 预防措施
+    additional_investigation: list[str] = Field(default_factory=list) # 需要额外调查的点
+    confidence_reasoning: str = ""           # 置信度推理
+    knowledge_gaps: list[str] = Field(default_factory=list)           # 知识盲点
+    metadata: dict[str, Any] = Field(default_factory=dict)            # 元数据
 ```
 
 ## Extractor 架构
