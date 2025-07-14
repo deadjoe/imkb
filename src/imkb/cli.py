@@ -11,10 +11,12 @@ import asyncio
 import json
 
 import click
+import yaml
 
 from . import __version__
 from . import gen_playbook as gen_playbook_func
 from . import get_rca as get_rca_func
+from .config import get_config
 
 
 @click.group()
@@ -118,12 +120,30 @@ def gen_playbook(rca_file: str, namespace: str):
 
 @cli.command()
 @click.option("--show", is_flag=True, help="Show current configuration")
-def config(show: bool):
+@click.option("--format", type=click.Choice(["yaml", "json"]), default="yaml", help="Output format")
+def config(show: bool, format: str):
     """Manage imkb configuration"""
     if show:
-        click.echo("Configuration management coming soon!")
+        try:
+            config_obj = get_config()
+            config_dict = config_obj.model_dump()
+
+            click.echo("🔧 Current imkb Configuration")
+            click.echo("=" * 40)
+
+            if format == "yaml":
+                click.echo(yaml.dump(config_dict, default_flow_style=False, indent=2))
+            elif format == "json":
+                click.echo(json.dumps(config_dict, indent=2))
+
+        except Exception as e:
+            click.echo(f"❌ Failed to load configuration: {e}", err=True)
     else:
         click.echo("Use --show to display current configuration")
+        click.echo("Available options:")
+        click.echo("  --show          Show current configuration")
+        click.echo("  --format yaml   Output in YAML format (default)")
+        click.echo("  --format json   Output in JSON format")
 
 
 def main():

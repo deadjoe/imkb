@@ -11,8 +11,8 @@ from typing import Any, Optional
 from .adapters.mem0 import Mem0Adapter
 from .config import ImkbConfig, get_config
 from .llm_client import LLMResponse, LLMRouter
-from .models import KBItem
-from .rca_pipeline import RCAResult
+from .models import KBItem, RCAResult
+from .rca_pipeline import extract_json_from_text
 
 logger = logging.getLogger(__name__)
 
@@ -196,29 +196,11 @@ Generate the action plan now:"""
     ) -> ActionResult:
         """Parse LLM response into structured ActionResult"""
         try:
-            # Extract JSON from response
-            content = response.content.strip()
+            # Use intelligent JSON extraction
+            parsed_data = extract_json_from_text(response.content)
 
-            # Look for JSON block
-            if "```json" in content:
-                start_idx = content.find("```json") + 7
-                end_idx = content.find("```", start_idx)
-                if end_idx != -1:
-                    json_content = content[start_idx:end_idx].strip()
-                else:
-                    json_content = content[start_idx:].strip()
-            elif content.startswith("{") and content.endswith("}"):
-                json_content = content
-            else:
-                start_idx = content.find("{")
-                end_idx = content.rfind("}") + 1
-                if start_idx != -1 and end_idx > start_idx:
-                    json_content = content[start_idx:end_idx]
-                else:
-                    raise ValueError("No JSON structure found in response")
-
-            # Parse JSON
-            parsed_data = json.loads(json_content)
+            if not parsed_data:
+                raise ValueError("No JSON structure found in response")
 
             # Create ActionResult
             return ActionResult(
@@ -343,7 +325,7 @@ async def gen_playbook(
     """
     try:
         # Create RCAResult object
-        rca_result = RCAResult.from_dict(rca_data)
+        rca_result = RCAResult.model_validate(rca_data)
 
         # Initialize pipeline with namespace
         config = get_config()

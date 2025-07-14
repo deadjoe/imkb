@@ -108,7 +108,7 @@ class TestRCAResult:
             "immediate_actions": ["Check network"],
         }
 
-        result = RCAResult.from_dict(data)
+        result = RCAResult.model_validate(data)
 
         assert result.root_cause == "Network timeout"
         assert result.confidence == 0.9

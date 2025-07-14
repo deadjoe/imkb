@@ -78,8 +78,8 @@ class ExtractorBase(ABC):
 
     def __init__(self, config: ImkbConfig):
         self.config = config
-        self.extractor_config = getattr(config.extractors, self.name, None)
-        if not self.extractor_config:
+        self.extractor_config = config.extractors.get_extractor_config(self.name)
+        if self.name not in config.extractors.extractors:
             logger.warning(
                 f"No configuration found for extractor '{self.name}', using defaults"
             )
@@ -124,8 +124,7 @@ class ExtractorBase(ABC):
         """Check if this extractor is enabled in configuration"""
         return (
             self.name in self.config.extractors.enabled
-            and getattr(self.config.extractors, self.name, None)
-            and getattr(self.config.extractors, self.name).enabled
+            and self.config.extractors.get_extractor_config(self.name).enabled
         )
 
     def get_timeout(self) -> float:
