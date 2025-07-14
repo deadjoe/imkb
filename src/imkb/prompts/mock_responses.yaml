@@ -1,0 +1,64 @@
+rca:
+  root_cause: "Resource contention or configuration issue based on the incident signature"
+  confidence: 0.75
+  contributing_factors:
+    - "High concurrent connection load"
+    - "Insufficient connection pool sizing"
+    - "Potential connection leaks in application code"
+  evidence:
+    - "Connection timeout errors in application logs"
+    - "High CPU utilization during incident period"
+    - "Database connection pool exhaustion"
+  immediate_actions:
+    - "Restart affected services to clear connection pool"
+    - "Increase connection pool size temporarily"
+    - "Monitor connection usage patterns"
+  preventive_measures:
+    - "Implement connection pooling monitoring"
+    - "Set up alerts for connection pool utilization"
+    - "Review application connection handling code"
+  additional_investigation:
+    - "Analyze database query performance"
+    - "Review connection lifecycle management"
+    - "Check for connection leak patterns"
+  confidence_reasoning: "Based on common patterns in connection-related incidents"
+  knowledge_gaps:
+    - "Exact cause of connection buildup"
+    - "Application-specific connection patterns"
+
+action_generation:
+  actions:
+    - "Implement immediate connection pool scaling"
+    - "Deploy connection monitoring dashboard"
+    - "Review and optimize database queries"
+  playbook: |
+    **Connection Pool Remediation Playbook**
+    
+    1. **Immediate Actions**
+       - Scale connection pool size by 50%
+       - Restart application services in rolling fashion
+       - Monitor connection pool metrics
+    
+    2. **Investigation Steps**
+       - Analyze connection usage patterns
+       - Review application logs for connection errors
+       - Check database performance metrics
+    
+    3. **Validation**
+       - Verify connection pool utilization is below 80%
+       - Confirm no connection timeout errors
+       - Monitor for 24 hours for stability
+  priority: "high"
+  estimated_time: "30 minutes"
+  risk_level: "medium"
+  prerequisites:
+    - "Database administrator access"
+    - "Application deployment permissions"
+  validation_steps:
+    - "Verify connection pool metrics are healthy"
+    - "Check for elimination of timeout errors"
+  rollback_plan: "Revert connection pool settings to original values if issues persist"
+  automation_potential: "semi-automated"
+
+default:
+  content: "This is a mock LLM response for testing purposes. Template type: {template_type}"

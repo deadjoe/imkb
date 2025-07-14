@@ -1,0 +1,46 @@
+version: "1.0"
+name: "action_generation"
+description: "Generate actionable remediation plans from RCA results"
+author: "imkb"
+tags:
+  - "action"
+  - "remediation"
+  - "playbook"
+  - "sre"
+parameters:
+  - name: "rca_result"
+    type: "object"
+    description: "RCA result object"
+    required: true
+  - name: "root_cause"
+    type: "string"
+    description: "Root cause description"
+    required: true
+  - name: "confidence"
+    type: "float"
+    description: "RCA confidence score"
+    required: true
+  - name: "extractor"
+    type: "string"
+    description: "Extractor type"
+    required: true
+  - name: "immediate_actions"
+    type: "list"
+    description: "Immediate actions from RCA"
+    required: true
+  - name: "preventive_measures"
+    type: "list"
+    description: "Preventive measures from RCA"
+    required: true
+  - name: "contributing_factors"
+    type: "list"
+    description: "Contributing factors"
+    required: true
+  - name: "similar_actions"
+    type: "list"
+    description: "Similar past actions"
+    required: false
+  - name: "has_similar_actions"
+    type: "boolean"
+    description: "Whether similar actions exist"
+    required: false
