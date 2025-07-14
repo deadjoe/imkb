@@ -189,6 +189,10 @@ extractors:
 
     def test_get_config_default(self):
         """Test get_config returns default configuration"""
+        # Reset global config to ensure clean state
+        import imkb.config
+        imkb.config._config = None
+        
         config = get_config()
         assert isinstance(config, ImkbConfig)
         assert config.namespace == "default"

@@ -84,10 +84,12 @@ class ExtractorsConfig(BaseModel):
     """All extractors configuration"""
 
     enabled: list[str] = Field(default_factory=lambda: ["mysqlkb"])
-    extractors: dict[str, ExtractorConfig] = Field(default_factory=lambda: {
-        "test": ExtractorConfig(),
-        "mysqlkb": ExtractorConfig()
-    })
+    extractors: dict[str, ExtractorConfig] = Field(
+        default_factory=lambda: {
+            "test": ExtractorConfig(),
+            "mysqlkb": ExtractorConfig(),
+        }
+    )
 
     def __getattr__(self, name: str) -> ExtractorConfig:
         """Allow accessing extractor configs as attributes for backward compatibility"""

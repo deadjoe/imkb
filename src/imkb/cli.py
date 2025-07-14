@@ -120,7 +120,12 @@ def gen_playbook(rca_file: str, namespace: str):
 
 @cli.command()
 @click.option("--show", is_flag=True, help="Show current configuration")
-@click.option("--format", type=click.Choice(["yaml", "json"]), default="yaml", help="Output format")
+@click.option(
+    "--format",
+    type=click.Choice(["yaml", "json"]),
+    default="yaml",
+    help="Output format",
+)
 def config(show: bool, format: str):
     """Manage imkb configuration"""
     if show:
