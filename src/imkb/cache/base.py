@@ -277,12 +277,9 @@ class CacheError(Exception):
     """Base exception for cache-related errors"""
 
 
-
 class CacheConnectionError(CacheError):
     """Exception for cache connection failures"""
 
 
-
 class CacheSerializationError(CacheError):
     """Exception for cache serialization/deserialization failures"""
-

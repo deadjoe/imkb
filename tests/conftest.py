@@ -299,9 +299,15 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(pytest.mark.integration)
 
         # Mark slow tests (async tests are often slower)
-        if (hasattr(item.function, "__code__") and "async" in str(item.function) and
-            not any(m.name == "slow" for m in item.iter_markers()) and
-            any(keyword in item.name for keyword in ["pipeline", "workflow", "end_to_end"])):
+        if (
+            hasattr(item.function, "__code__")
+            and "async" in str(item.function)
+            and not any(m.name == "slow" for m in item.iter_markers())
+            and any(
+                keyword in item.name
+                for keyword in ["pipeline", "workflow", "end_to_end"]
+            )
+        ):
             item.add_marker(pytest.mark.slow)
 
 

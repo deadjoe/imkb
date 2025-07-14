@@ -180,6 +180,7 @@ description: "Template for testing RCA analysis"
     def test_get_nonexistent_template(self):
         """Test getting non-existent template raises error"""
         import jinja2
+
         with pytest.raises(jinja2.TemplateNotFound):
             self.prompt_manager.get_template("nonexistent/template.jinja2")
 
@@ -449,14 +450,17 @@ This analysis indicates a clear memory issue."""
             content='{"root_cause": "Test cause", "confidence": 0.8}', model="gpt-4"
         )
 
-        with patch.object(
-            self.pipeline.llm_router,
-            "generate",
-            new=AsyncMock(return_value=mock_llm_response),
-        ), patch.object(
-            self.pipeline.prompt_manager,
-            "render_template",
-            return_value="Test prompt",
+        with (
+            patch.object(
+                self.pipeline.llm_router,
+                "generate",
+                new=AsyncMock(return_value=mock_llm_response),
+            ),
+            patch.object(
+                self.pipeline.prompt_manager,
+                "render_template",
+                return_value="Test prompt",
+            ),
         ):
             result = await self.pipeline.generate_rca(
                 event, mock_extractor, knowledge_items

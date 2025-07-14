@@ -191,7 +191,6 @@ Provide a comprehensive action plan in JSON format:
 
 Generate the action plan now:"""
 
-
     def _parse_action_response(
         self, response: LLMResponse, rca_result: RCAResult
     ) -> ActionResult:

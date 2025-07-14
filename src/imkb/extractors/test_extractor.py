@@ -6,11 +6,13 @@ test data for development purposes.
 """
 
 import logging
-# from typing import List  # Removed unused import
 
 from ..adapters.mem0 import Mem0Adapter
 from ..config import ImkbConfig
 from .base import Event, ExtractorBase, KBItem, register_extractor
+
+# from typing import List  # Removed unused import
+
 
 logger = logging.getLogger(__name__)
 

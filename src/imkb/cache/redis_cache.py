@@ -6,6 +6,7 @@ persistence, clustering support, and high performance.
 """
 
 import asyncio
+import contextlib
 import json
 import logging
 import time
@@ -18,7 +19,6 @@ from .base import (
     CacheKey,
     CacheSerializationError,
 )
-import contextlib
 
 logger = logging.getLogger(__name__)
 
@@ -112,7 +112,9 @@ class RedisCache(CacheBackend):
             }
             return json.dumps(data, ensure_ascii=False).encode("utf-8")
         except (TypeError, ValueError) as e:
-            raise CacheSerializationError(f"Failed to serialize cache entry: {e}") from e
+            raise CacheSerializationError(
+                f"Failed to serialize cache entry: {e}"
+            ) from e
 
     def _deserialize_entry(self, data: bytes) -> CacheEntry:
         """Deserialize cache entry from Redis storage"""
@@ -126,7 +128,9 @@ class RedisCache(CacheBackend):
                 metadata=obj.get("metadata", {}),
             )
         except (json.JSONDecodeError, KeyError, ValueError) as e:
-            raise CacheSerializationError(f"Failed to deserialize cache entry: {e}") from e
+            raise CacheSerializationError(
+                f"Failed to deserialize cache entry: {e}"
+            ) from e
 
     async def get(self, key: CacheKey) -> Optional[CacheEntry]:
         """Retrieve value from cache"""
