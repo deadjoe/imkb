@@ -4,36 +4,35 @@ Action Pipeline - Generate remediation actions from RCA results
 Transforms root cause analysis into actionable remediation steps and playbooks.
 """
 
-from typing import Any, Dict, List, Optional
 import json
 import logging
-from pathlib import Path
+from typing import Any, Optional
 
-from .config import ImkbConfig, get_config
-from .llm_client import LLMRouter, LLMResponse
-from .rca_pipeline import RCAResult
 from .adapters.mem0 import Mem0Adapter
+from .config import ImkbConfig, get_config
+from .llm_client import LLMResponse, LLMRouter
 from .models import KBItem
+from .rca_pipeline import RCAResult
 
 logger = logging.getLogger(__name__)
 
 
 class ActionResult:
     """Action pipeline result structure"""
-    
+
     def __init__(
         self,
-        actions: List[str],
+        actions: list[str],
         playbook: str,
         priority: str = "medium",
         estimated_time: Optional[str] = None,
         risk_level: str = "low",
-        prerequisites: Optional[List[str]] = None,
-        validation_steps: Optional[List[str]] = None,
+        prerequisites: Optional[list[str]] = None,
+        validation_steps: Optional[list[str]] = None,
         rollback_plan: Optional[str] = None,
         automation_potential: str = "manual",
         confidence: float = 0.8,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[dict[str, Any]] = None,
     ):
         self.actions = actions
         self.playbook = playbook
@@ -46,8 +45,8 @@ class ActionResult:
         self.automation_potential = automation_potential
         self.confidence = confidence
         self.metadata = metadata or {}
-    
-    def to_dict(self) -> Dict[str, Any]:
+
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation"""
         return {
             "actions": self.actions,
@@ -60,11 +59,11 @@ class ActionResult:
             "rollback_plan": self.rollback_plan,
             "automation_potential": self.automation_potential,
             "confidence": self.confidence,
-            "metadata": self.metadata
+            "metadata": self.metadata,
         }
-    
+
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ActionResult":
+    def from_dict(cls, data: dict[str, Any]) -> "ActionResult":
         """Create ActionResult from dictionary"""
         return cls(
             actions=data["actions"],
@@ -77,45 +76,47 @@ class ActionResult:
             rollback_plan=data.get("rollback_plan"),
             automation_potential=data.get("automation_potential", "manual"),
             confidence=data.get("confidence", 0.8),
-            metadata=data.get("metadata", {})
+            metadata=data.get("metadata", {}),
         )
 
 
 class ActionPipeline:
     """
     Action Pipeline orchestrator
-    
+
     Generates actionable remediation steps and playbooks from RCA results.
     """
-    
+
     def __init__(self, config: Optional[ImkbConfig] = None):
         self.config = config or get_config()
         self.llm_router = LLMRouter(self.config)
         self.mem0_adapter = Mem0Adapter(self.config)
-    
-    async def search_similar_actions(self, rca_result: RCAResult, limit: int = 5) -> List[KBItem]:
+
+    async def search_similar_actions(
+        self, rca_result: RCAResult, limit: int = 5
+    ) -> list[KBItem]:
         """Search for similar past actions and playbooks"""
         try:
             # Create search query from RCA
             search_query = f"actions playbook remediation {rca_result.root_cause[:100]}"
-            
+
             # Search for similar actions in memory
             user_id = f"{self.config.namespace}_actions_{rca_result.extractor}"
-            
+
             similar_actions = await self.mem0_adapter.search(
-                query=search_query,
-                user_id=user_id,
-                limit=limit
+                query=search_query, user_id=user_id, limit=limit
             )
-            
+
             logger.debug(f"Found {len(similar_actions)} similar action patterns")
             return similar_actions
-            
+
         except Exception as e:
             logger.error(f"Failed to search similar actions: {e}")
             return []
-    
-    def _build_action_prompt_context(self, rca_result: RCAResult, similar_actions: List[KBItem]) -> Dict[str, Any]:
+
+    def _build_action_prompt_context(
+        self, rca_result: RCAResult, similar_actions: list[KBItem]
+    ) -> dict[str, Any]:
         """Build context for action generation prompt"""
         return {
             "rca_result": rca_result.to_dict(),
@@ -126,13 +127,13 @@ class ActionPipeline:
             "preventive_measures": rca_result.preventive_measures,
             "contributing_factors": rca_result.contributing_factors,
             "similar_actions": [action.to_dict() for action in similar_actions],
-            "has_similar_actions": len(similar_actions) > 0
+            "has_similar_actions": len(similar_actions) > 0,
         }
-    
-    def _render_action_prompt(self, context: Dict[str, Any]) -> str:
+
+    def _render_action_prompt(self, context: dict[str, Any]) -> str:
         """Render action generation prompt"""
         # For now, use a simple template. In production, this would use Jinja2
-        prompt = f"""You are an expert Site Reliability Engineer creating actionable remediation plans.
+        return f"""You are an expert Site Reliability Engineer creating actionable remediation plans.
 
 Based on the root cause analysis provided, generate a comprehensive action plan.
 
@@ -189,15 +190,16 @@ Provide a comprehensive action plan in JSON format:
 6. **Context Awareness**: Consider the extractor type ({context['extractor']}) and tailor actions accordingly
 
 Generate the action plan now:"""
-        
-        return prompt
-    
-    def _parse_action_response(self, response: LLMResponse, rca_result: RCAResult) -> ActionResult:
+
+
+    def _parse_action_response(
+        self, response: LLMResponse, rca_result: RCAResult
+    ) -> ActionResult:
         """Parse LLM response into structured ActionResult"""
         try:
             # Extract JSON from response
             content = response.content.strip()
-            
+
             # Look for JSON block
             if "```json" in content:
                 start_idx = content.find("```json") + 7
@@ -215,10 +217,10 @@ Generate the action plan now:"""
                     json_content = content[start_idx:end_idx]
                 else:
                     raise ValueError("No JSON structure found in response")
-            
+
             # Parse JSON
             parsed_data = json.loads(json_content)
-            
+
             # Create ActionResult
             return ActionResult(
                 actions=parsed_data.get("actions", ["Manual investigation required"]),
@@ -235,15 +237,16 @@ Generate the action plan now:"""
                     "llm_model": response.model,
                     "tokens_used": response.tokens_used,
                     "source_rca_extractor": rca_result.extractor,
-                    "source_rca_confidence": rca_result.confidence
-                }
+                    "source_rca_confidence": rca_result.confidence,
+                },
             )
-            
+
         except (json.JSONDecodeError, ValueError, KeyError) as e:
             logger.error(f"Failed to parse action response: {e}")
             # Fallback action result
             return ActionResult(
-                actions=rca_result.immediate_actions or ["Manual investigation required"],
+                actions=rca_result.immediate_actions
+                or ["Manual investigation required"],
                 playbook=f"Automated playbook generation failed. Manual analysis needed for: {rca_result.root_cause}",
                 priority="medium",
                 risk_level="unknown",
@@ -251,60 +254,64 @@ Generate the action plan now:"""
                 metadata={
                     "llm_model": response.model,
                     "parse_error": str(e),
-                    "source_rca_extractor": rca_result.extractor
-                }
+                    "source_rca_extractor": rca_result.extractor,
+                },
             )
-    
+
     async def generate_actions(self, rca_result: RCAResult) -> ActionResult:
         """Generate actionable remediation plan from RCA result"""
         try:
             # Search for similar past actions
             similar_actions = await self.search_similar_actions(rca_result)
-            
+
             # Build prompt context
             context = self._build_action_prompt_context(rca_result, similar_actions)
-            
+
             # Render prompt
             prompt = self._render_action_prompt(context)
-            
+
             # Generate LLM response
             llm_response = await self.llm_router.generate(
-                prompt=prompt,
-                template_type="action_generation"
+                prompt=prompt, template_type="action_generation"
             )
-            
+
             # Parse response
             action_result = self._parse_action_response(llm_response, rca_result)
-            
+
             # Store successful action plan for future reference
             await self._store_action_plan(rca_result, action_result)
-            
-            logger.info(f"Generated action plan with {len(action_result.actions)} actions")
+
+            logger.info(
+                f"Generated action plan with {len(action_result.actions)} actions"
+            )
             return action_result
-            
+
         except Exception as e:
             logger.error(f"Action generation failed: {e}")
             # Return fallback action result
             return ActionResult(
-                actions=rca_result.immediate_actions or ["Manual investigation required"],
+                actions=rca_result.immediate_actions
+                or ["Manual investigation required"],
                 playbook=f"Action generation error: {str(e)}. Please investigate manually based on RCA findings.",
                 priority="medium",
                 confidence=0.2,
-                metadata={"error": str(e), "fallback": True}
+                metadata={"error": str(e), "fallback": True},
             )
-    
-    async def _store_action_plan(self, rca_result: RCAResult, action_result: ActionResult) -> None:
+
+    async def _store_action_plan(
+        self, rca_result: RCAResult, action_result: ActionResult
+    ) -> None:
         """Store successful action plan for future learning"""
         try:
             user_id = f"{self.config.namespace}_actions_{rca_result.extractor}"
-            
+
             # Create memory content
             content = f"""Action Plan for {rca_result.root_cause[:100]}:
 Actions: {'; '.join(action_result.actions[:3])}
 Priority: {action_result.priority}
 Risk: {action_result.risk_level}
 Success: {action_result.confidence > 0.7}"""
-            
+
             await self.mem0_adapter.add_memory(
                 content=content,
                 user_id=user_id,
@@ -314,39 +321,41 @@ Success: {action_result.confidence > 0.7}"""
                     "priority": action_result.priority,
                     "risk_level": action_result.risk_level,
                     "automation_potential": action_result.automation_potential,
-                    "action_count": len(action_result.actions)
-                }
+                    "action_count": len(action_result.actions),
+                },
             )
-            
+
         except Exception as e:
             logger.warning(f"Failed to store action plan: {e}")
 
 
-async def gen_playbook(rca_data: Dict[str, Any], namespace: str = "default") -> Dict[str, Any]:
+async def gen_playbook(
+    rca_data: dict[str, Any], namespace: str = "default"
+) -> dict[str, Any]:
     """
     Main entry point for action/playbook generation
-    
+
     Args:
         rca_data: RCA result dictionary
         namespace: Namespace for multi-tenant isolation
-        
+
     Returns:
         Action result dictionary
     """
     try:
         # Create RCAResult object
         rca_result = RCAResult.from_dict(rca_data)
-        
+
         # Initialize pipeline with namespace
         config = get_config()
         config.namespace = namespace
         pipeline = ActionPipeline(config)
-        
+
         # Generate actions
         action_result = await pipeline.generate_actions(rca_result)
-        
+
         return action_result.to_dict()
-        
+
     except Exception as e:
         logger.error(f"Action pipeline failed: {e}")
         return ActionResult(
@@ -354,5 +363,5 @@ async def gen_playbook(rca_data: Dict[str, Any], namespace: str = "default") -> 
             playbook=f"Action pipeline error: {str(e)}",
             priority="medium",
             confidence=0.1,
-            metadata={"error": str(e)}
+            metadata={"error": str(e)},
         ).to_dict()

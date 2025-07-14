@@ -7,10 +7,11 @@ and helping local or remote LLMs generate root cause analysis (RCA) and remediat
 
 __version__ = "0.1.0"
 
-# Core API exports
-from .rca_pipeline import get_rca
 from .action_pipeline import gen_playbook
 from .config import ImkbConfig
+
+# Core API exports
+from .rca_pipeline import get_rca
 
 __all__ = [
     "get_rca",
@@ -18,6 +19,7 @@ __all__ = [
     "ImkbConfig",
     "__version__",
 ]
+
 
 def main() -> None:
     print("Hello from imkb!")
