@@ -11,9 +11,6 @@ from ..adapters.mem0 import Mem0Adapter
 from ..config import ImkbConfig
 from .base import Event, ExtractorBase, KBItem, register_extractor
 
-# from typing import List  # Removed unused import
-
-
 logger = logging.getLogger(__name__)
 
 
@@ -69,11 +66,9 @@ class TestExtractor(ExtractorBase):
 
         For testing, we match events based on simple keywords or always match.
         """
-        # Always match for testing purposes
         if "test" in event.source.lower():
             return True
 
-        # Match events containing common keywords
         keywords = ["cpu", "memory", "database", "connection", "timeout", "error"]
         event_text = f"{event.message} {event.signature}".lower()
 
@@ -84,22 +79,18 @@ class TestExtractor(ExtractorBase):
         Recall relevant knowledge using Mem0 hybrid storage + test data
         """
         try:
-            # Generate user_id for namespace isolation
             user_id = f"{self.config.namespace}_{event.source}_{self.name}"
 
-            # Try to search existing memories in Mem0
             memories = []
             try:
                 memories = await self.mem0_adapter.search(
                     query=event.signature,
                     user_id=user_id,
-                    limit=k // 2,  # Reserve half for test data
+                    limit=k // 2,
                 )
 
-                # If we don't have enough memories, seed with test data
                 if len(memories) < 2:
                     await self._seed_test_memories(user_id)
-                    # Search again after seeding
                     memories = await self.mem0_adapter.search(
                         query=event.signature, user_id=user_id, limit=k // 2
                     )
@@ -107,10 +98,8 @@ class TestExtractor(ExtractorBase):
                 logger.warning(f"Mem0 search failed, using mock data only: {mem_error}")
                 memories = []
 
-            # Add mock knowledge items based on event content
             mock_items = self._generate_mock_items(event, k - len(memories))
 
-            # Combine Mem0 results with mock items
             all_items = memories + mock_items
 
             logger.info(
@@ -120,7 +109,6 @@ class TestExtractor(ExtractorBase):
 
         except Exception as e:
             logger.error(f"Test extractor recall failed: {e}")
-            # Fallback to mock data only
             return self._generate_mock_items(event, k)
 
     async def _seed_test_memories(self, user_id: str) -> None:
@@ -142,12 +130,10 @@ class TestExtractor(ExtractorBase):
         """Generate mock knowledge items for testing"""
         mock_items = []
 
-        # Select relevant test knowledge based on event content
         event_text = f"{event.message} {event.signature}".lower()
 
         relevant_knowledge = []
         for knowledge in self._test_knowledge:
-            # Simple relevance scoring based on keyword matching
             score = 0.0
             content_lower = knowledge["content"].lower()
 
@@ -164,15 +150,12 @@ class TestExtractor(ExtractorBase):
                 if "disk" in content_lower or "storage" in content_lower:
                     score = 0.7
             else:
-                # Default relevance for any knowledge
                 score = 0.5
 
             relevant_knowledge.append((knowledge, score))
 
-        # Sort by relevance score
         relevant_knowledge.sort(key=lambda x: x[1], reverse=True)
 
-        # Create KBItem objects
         for _i, (knowledge, score) in enumerate(relevant_knowledge[:count]):
             kb_item = KBItem(
                 doc_id=knowledge["id"],
@@ -190,7 +173,6 @@ class TestExtractor(ExtractorBase):
         """
         base_context = super().get_prompt_context(event, snippets)
 
-        # Add test-specific context
         base_context.update(
             {
                 "extractor_type": "test",

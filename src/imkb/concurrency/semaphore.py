@@ -74,13 +74,11 @@ class AsyncSemaphore:
         self.capacity = value
         self._semaphore = asyncio.Semaphore(value)
 
-        # Statistics
         self._total_acquisitions = 0
         self._total_timeouts = 0
         self._hold_times = []
         self._max_hold_time = 0.0
 
-        # Track active acquisitions for leak detection
         self._active_acquisitions = {}
         self._next_acquisition_id = 0
 
@@ -98,16 +96,13 @@ class AsyncSemaphore:
         acquisition_id = self._next_acquisition_id
         self._next_acquisition_id += 1
 
-        # start_time = time.time()  # Removed unused variable
 
         try:
-            # Wait for semaphore with timeout
             if timeout is not None:
                 await asyncio.wait_for(self._semaphore.acquire(), timeout=timeout)
             else:
                 await self._semaphore.acquire()
 
-            # Track acquisition
             acquire_time = time.time()
             self._active_acquisitions[acquisition_id] = acquire_time
             self._total_acquisitions += 1
@@ -117,7 +112,6 @@ class AsyncSemaphore:
             try:
                 yield
             finally:
-                # Release and update statistics
                 if acquisition_id in self._active_acquisitions:
                     hold_time = time.time() - self._active_acquisitions[acquisition_id]
                     self._hold_times.append(hold_time)
@@ -141,7 +135,6 @@ class AsyncSemaphore:
 
     def get_stats(self) -> SemaphoreStats:
         """Get detailed semaphore statistics"""
-        # Using private members is necessary for semaphore inspection
         current_value = self._semaphore._value  # noqa: SLF001
         waiting_count = (
             len(self._semaphore._waiters)
@@ -149,7 +142,6 @@ class AsyncSemaphore:
             else 0  # noqa: SLF001
         )
 
-        # Calculate average hold time
         avg_hold_time = (
             sum(self._hold_times) / len(self._hold_times) if self._hold_times else 0.0
         )
@@ -269,15 +261,12 @@ class SemaphoreManager:
         """
         semaphores = [self.get_semaphore(name) for name in semaphore_names]
 
-        # Sort by capacity to prevent deadlocks (smaller capacity first)
         sorted_semaphores = sorted(semaphores, key=lambda s: s.capacity)
 
         acquired = []
 
         try:
-            # Acquire in sorted order
             for semaphore in sorted_semaphores:
-                # Calculate remaining timeout
                 remaining_timeout = timeout
                 if timeout is not None and acquired:
                     elapsed = sum(
@@ -293,7 +282,6 @@ class SemaphoreManager:
             return acquired
 
         except Exception:
-            # Release acquired semaphores in reverse order
             for semaphore in reversed(acquired):
                 try:
                     semaphore._semaphore.release()  # noqa: SLF001
@@ -302,7 +290,6 @@ class SemaphoreManager:
             raise
 
 
-# Global semaphore manager
 _semaphore_manager = SemaphoreManager()
 
 
@@ -332,8 +319,6 @@ def limit_concurrency(
                 return await func(*args, **kwargs)
 
         def sync_wrapper(*args, **kwargs):
-            # For sync functions, we can't use async semaphores directly
-            # This would need to be implemented differently
             return func(*args, **kwargs)
 
         if asyncio.iscoroutinefunction(func):

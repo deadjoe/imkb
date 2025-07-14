@@ -11,7 +11,6 @@ from typing import Any, Optional
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Import observability config if available
 try:
     from .observability.config import TelemetryConfig
 
@@ -59,7 +58,6 @@ class LLMRouterConfig(BaseModel):
     temperature: float = Field(default=0.2, ge=0.0, le=2.0)
     max_tokens: int = Field(default=1024, gt=0)
     timeout: float = Field(default=30.0, gt=0)
-    # For llama.cpp
     gpu_layers: Optional[int] = None
     model_path: Optional[str] = None
 
@@ -79,7 +77,6 @@ class ExtractorConfig(BaseModel):
     timeout: float = 5.0
     max_results: int = 10
     enabled: bool = True
-    # Additional extractor-specific config
     config: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -89,7 +86,6 @@ class ExtractorsConfig(BaseModel):
     enabled: list[str] = Field(default_factory=lambda: ["test"])
     test: ExtractorConfig = Field(default_factory=ExtractorConfig)
     mysqlkb: ExtractorConfig = Field(default_factory=ExtractorConfig)
-    # rhokp: ExtractorConfig = Field(default_factory=ExtractorConfig)
 
 
 class FeaturesConfig(BaseModel):
@@ -139,7 +135,6 @@ class ImkbConfig(BaseSettings):
         extra="ignore",
     )
 
-    # Core configuration sections
     mem0: Mem0Config = Field(default_factory=Mem0Config)
     llm: LLMConfig = Field(default_factory=LLMConfig)
     extractors: ExtractorsConfig = Field(default_factory=ExtractorsConfig)
@@ -148,7 +143,6 @@ class ImkbConfig(BaseSettings):
     performance: PerformanceConfig = Field(default_factory=PerformanceConfig)
     security: SecurityConfig = Field(default_factory=SecurityConfig)
 
-    # Global settings
     namespace: str = "default"
     log_level: str = "INFO"
 
@@ -164,7 +158,6 @@ class ImkbConfig(BaseSettings):
             with open(config_file, encoding="utf-8") as f:
                 config_data = yaml.safe_load(f) or {}
 
-        # Create instance with file data, env vars will override automatically
         return cls(**config_data)
 
     def get_mem0_config(self) -> dict[str, Any]:
@@ -201,7 +194,6 @@ class ImkbConfig(BaseSettings):
         return self.llm.routers[router_name]
 
 
-# Global configuration instance
 _config: Optional[ImkbConfig] = None
 
 

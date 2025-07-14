@@ -4,7 +4,6 @@ Test suite for extractors system
 Tests base extractor functionality, specific extractors, and the registry system.
 """
 
-# from typing import List  # Removed unused import
 
 import pytest
 
