@@ -131,3 +131,6 @@ dmypy.json
 
 # pyenv
 .python-version
+
+# Claude Code session memory files
+CLAUDE.md
