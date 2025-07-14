@@ -348,6 +348,8 @@ Apache License 2.0 - see [LICENSE](LICENSE) for details.
 
 ## Related Projects
 
-- [Mem0](https://github.com/mem0ai/mem0) - Hybrid memory storage for AI applications
-- [LangChain](https://github.com/langchain-ai/langchain) - Framework for developing LLM applications  
-- [Qdrant](https://github.com/qdrant/qdrant) - Vector similarity search engine
+- [Mem0](https://github.com/mem0ai/mem0) - Hybrid memory storage for AI applications (core dependency)
+- [Qdrant](https://github.com/qdrant/qdrant) - Vector similarity search engine (vector storage backend)
+- [Neo4j](https://github.com/neo4j/neo4j) - Graph database for relationship-based knowledge retrieval
+- [OpenTelemetry](https://github.com/open-telemetry/opentelemetry-python) - Observability framework for distributed tracing and metrics
+- [llama.cpp](https://github.com/ggerganov/llama.cpp) - Efficient inference of Large Language Models
