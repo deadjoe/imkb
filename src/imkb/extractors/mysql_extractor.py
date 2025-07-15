@@ -34,85 +34,34 @@ class MySQLKBExtractor(ExtractorBase):
     def __init__(self, config: ImkbConfig):
         super().__init__(config)
         self.mem0_adapter = Mem0Adapter(config)
+        self._mysql_knowledge = self._load_mysql_knowledge()
 
-        # Mock MySQL KB data for development
-        self._mysql_knowledge = [
-            {
-                "id": "mysql_kb_001",
-                "title": "Connection Pool Exhaustion Troubleshooting",
-                "content": "MySQL connection pool exhaustion occurs when all available connections are in use. Common causes include connection leaks, insufficient pool sizing, long-running transactions, and application connection mismanagement. Solutions involve reviewing pool configuration, implementing connection monitoring, fixing connection leaks, and optimizing query performance.",
-                "category": "connection_management",
-                "severity": "P1",
-                "tags": ["mysql", "connection", "pool", "exhaustion"],
-                "solution_steps": [
-                    "Check current connection count: SHOW PROCESSLIST",
-                    "Review connection pool configuration",
-                    "Identify and terminate blocking queries",
-                    "Increase max_connections if needed",
-                    "Audit application connection handling",
-                ],
-            },
-            {
-                "id": "mysql_kb_002",
-                "title": "MySQL High CPU Usage Investigation",
-                "content": "High CPU usage in MySQL can result from inefficient queries, missing indexes, table locks, or excessive concurrent connections. Investigation should focus on query analysis, index optimization, and connection monitoring. Use SHOW PROCESSLIST, EXPLAIN PLAN, and performance_schema for diagnosis.",
-                "category": "performance",
-                "severity": "P2",
-                "tags": ["mysql", "cpu", "performance", "optimization"],
-                "solution_steps": [
-                    "Identify slow queries using slow query log",
-                    "Run EXPLAIN on problematic queries",
-                    "Check for missing indexes",
-                    "Monitor concurrent connections",
-                    "Optimize query performance",
-                ],
-            },
-            {
-                "id": "mysql_kb_003",
-                "title": "MySQL Memory Usage and OOM Prevention",
-                "content": "MySQL memory issues often stem from incorrect buffer pool sizing, memory leaks in queries, or insufficient system memory allocation. Key areas include innodb_buffer_pool_size, query_cache_size, and connection memory usage. Monitor memory consumption patterns and adjust configuration accordingly.",
-                "category": "memory_management",
-                "severity": "P1",
-                "tags": ["mysql", "memory", "oom", "innodb", "buffer_pool"],
-                "solution_steps": [
-                    "Monitor memory usage: SHOW STATUS LIKE 'memory%'",
-                    "Review innodb_buffer_pool_size setting",
-                    "Check for memory-intensive queries",
-                    "Adjust memory allocation parameters",
-                    "Implement memory monitoring alerts",
-                ],
-            },
-            {
-                "id": "mysql_kb_004",
-                "title": "MySQL Replication Lag Resolution",
-                "content": "Replication lag in MySQL master-slave setups can be caused by network issues, large transactions, insufficient slave resources, or binary log configuration problems. Resolution involves identifying bottlenecks, optimizing replication settings, and ensuring adequate slave capacity.",
-                "category": "replication",
-                "severity": "P2",
-                "tags": ["mysql", "replication", "lag", "master", "slave"],
-                "solution_steps": [
-                    "Check replication status: SHOW SLAVE STATUS",
-                    "Monitor Seconds_Behind_Master metric",
-                    "Identify large transactions in binary log",
-                    "Optimize slave hardware resources",
-                    "Review replication configuration",
-                ],
-            },
-            {
-                "id": "mysql_kb_005",
-                "title": "MySQL Deadlock Detection and Resolution",
-                "content": "MySQL deadlocks occur when two or more transactions wait for each other to release locks. Common scenarios include conflicting transaction orders, long-running transactions, and insufficient indexes. Detection involves analyzing InnoDB status and implementing proper transaction design patterns.",
-                "category": "locking",
-                "severity": "P2",
-                "tags": ["mysql", "deadlock", "transaction", "innodb", "locks"],
-                "solution_steps": [
-                    "Review SHOW ENGINE INNODB STATUS output",
-                    "Identify deadlock patterns in error logs",
-                    "Implement consistent transaction ordering",
-                    "Reduce transaction duration",
-                    "Add appropriate indexes to reduce lock scope",
-                ],
-            },
-        ]
+    def _load_mysql_knowledge(self) -> list[dict[str, Any]]:
+        """Load MySQL knowledge base from external YAML file"""
+        try:
+            from pathlib import Path
+
+            import yaml
+
+            # Get the knowledge file path
+            knowledge_file = Path(__file__).parent / "data" / "mysql_knowledge.yaml"
+
+            if not knowledge_file.exists():
+                logger.warning(f"MySQL knowledge file not found: {knowledge_file}")
+                return []
+
+            with open(knowledge_file, encoding="utf-8") as f:
+                data = yaml.safe_load(f)
+
+            knowledge_base = data.get("knowledge_base", [])
+            logger.info(f"Loaded {len(knowledge_base)} MySQL knowledge entries from {knowledge_file}")
+
+            return knowledge_base
+
+        except Exception as e:
+            logger.error(f"Failed to load MySQL knowledge base: {e}")
+            # Return empty list as fallback
+            return []
 
     async def match(self, event: Event) -> bool:
         """

@@ -46,8 +46,8 @@ class TestLLMResponse:
 
         assert response.metadata == metadata
 
-    def test_to_dict(self):
-        """Test LLMResponse to_dict conversion"""
+    def test_model_dump(self):
+        """Test LLMResponse model_dump (Pydantic serialization)"""
         response = LLMResponse(
             content="Test response",
             model="gpt-4",
@@ -56,7 +56,7 @@ class TestLLMResponse:
             metadata={"test": "value"},
         )
 
-        result = response.to_dict()
+        result = response.model_dump()
         expected = {
             "content": "Test response",
             "model": "gpt-4",
@@ -195,7 +195,23 @@ class TestOpenAIClient:
     @patch("openai.AsyncOpenAI")
     async def test_generate_with_system_prompt(self, mock_openai):
         """Test generation with system prompt"""
+        # Mock OpenAI response
+        mock_choice = MagicMock()
+        mock_choice.message.content = "Generated response"
+        mock_choice.finish_reason = "stop"
+
+        mock_usage = MagicMock()
+        mock_usage.total_tokens = 100
+        mock_usage.prompt_tokens = 50
+        mock_usage.completion_tokens = 50
+
+        mock_response = MagicMock()
+        mock_response.choices = [mock_choice]
+        mock_response.model = "gpt-4o-mini"
+        mock_response.usage = mock_usage
+
         mock_instance = AsyncMock()
+        mock_instance.chat.completions.create.return_value = mock_response
         mock_openai.return_value = mock_instance
 
         client = OpenAIClient(self.config)
