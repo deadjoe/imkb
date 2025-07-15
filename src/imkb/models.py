@@ -18,10 +18,6 @@ class KBItem(BaseModel):
     score: float = 0.0
     metadata: dict[str, Any] = Field(default_factory=dict)
 
-    def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary representation"""
-        return self.model_dump()
-
 
 class Event(BaseModel):
     """Event data structure for incident/alert information"""
@@ -36,10 +32,6 @@ class Event(BaseModel):
     raw: dict[str, Any] = Field(default_factory=dict)
     context_hash: Optional[str] = None
     embedding_version: str = "v1.0"
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert event to dictionary representation"""
-        return self.model_dump()
 
 
 class RCAResult(BaseModel):
@@ -59,10 +51,6 @@ class RCAResult(BaseModel):
     knowledge_gaps: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
-    def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary representation"""
-        return self.model_dump()
-
 
 class ActionResult(BaseModel):
     """Action pipeline result structure"""
@@ -78,7 +66,3 @@ class ActionResult(BaseModel):
     automation_potential: str = "manual"
     confidence: float = Field(default=0.8, ge=0.0, le=1.0)
     metadata: dict[str, Any] = Field(default_factory=dict)
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary representation"""
-        return self.model_dump()

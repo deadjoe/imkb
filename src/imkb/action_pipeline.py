@@ -40,7 +40,7 @@ class ActionPipeline:
             search_query = f"actions playbook remediation {rca_result.root_cause[:100]}"
 
             # Search for similar actions in memory
-            user_id = f"{self.config.namespace}_actions_{rca_result.extractor}"
+            user_id = f"{self.config.get_current_namespace()}_actions_{rca_result.extractor}"
 
             similar_actions = await self.mem0_adapter.search(
                 query=search_query, user_id=user_id, limit=limit
@@ -58,14 +58,14 @@ class ActionPipeline:
     ) -> dict[str, Any]:
         """Build context for action generation prompt"""
         return {
-            "rca_result": rca_result.to_dict(),
+            "rca_result": rca_result.model_dump(),
             "root_cause": rca_result.root_cause,
             "confidence": rca_result.confidence,
             "extractor": rca_result.extractor,
             "immediate_actions": rca_result.immediate_actions,
             "preventive_measures": rca_result.preventive_measures,
             "contributing_factors": rca_result.contributing_factors,
-            "similar_actions": [action.to_dict() for action in similar_actions],
+            "similar_actions": [action.model_dump() for action in similar_actions],
             "has_similar_actions": len(similar_actions) > 0,
         }
 
@@ -73,7 +73,7 @@ class ActionPipeline:
         """Render action generation prompt using Jinja2 template"""
         try:
             template = self.prompt_manager.get_template(
-                "action_generation/v1/template.jinja2"
+                self.config.prompts.action_template_path
             )
             return template.render(**context)
         except Exception as e:
@@ -183,7 +183,7 @@ priority, and other details."""
     ) -> None:
         """Store successful action plan for future learning"""
         try:
-            user_id = f"{self.config.namespace}_actions_{rca_result.extractor}"
+            user_id = f"{self.config.get_current_namespace()}_actions_{rca_result.extractor}"
 
             # Create memory content
             content = f"""Action Plan for {rca_result.root_cause[:100]}:
@@ -226,15 +226,18 @@ async def gen_playbook(
         # Create RCAResult object
         rca_result = RCAResult.model_validate(rca_data)
 
-        # Initialize pipeline with namespace
+        # Initialize pipeline with namespace context
         config = get_config()
-        config.namespace = namespace
-        pipeline = ActionPipeline(config)
 
-        # Generate actions
-        action_result = await pipeline.generate_actions(rca_result)
+        # Use context-based namespace instead of modifying global state
+        from .context import NamespaceContext
+        with NamespaceContext(namespace):
+            pipeline = ActionPipeline(config)
 
-        return action_result.to_dict()
+            # Generate actions
+            action_result = await pipeline.generate_actions(rca_result)
+
+            return action_result.model_dump()
 
     except Exception as e:
         logger.error(f"Action pipeline failed: {e}")
@@ -244,4 +247,4 @@ async def gen_playbook(
             priority="medium",
             confidence=0.1,
             metadata={"error": str(e)},
-        ).to_dict()
+        ).model_dump()

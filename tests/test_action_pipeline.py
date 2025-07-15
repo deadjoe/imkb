@@ -73,7 +73,7 @@ class TestActionResult:
             validation_steps=["Validation 1"],
         )
 
-        result_dict = result.to_dict()
+        result_dict = result.model_dump()
 
         assert result_dict["actions"] == ["Test action"]
         assert result_dict["playbook"] == "Test playbook"
@@ -456,21 +456,25 @@ class TestGenPlaybookFunction:
             "immediate_actions": ["Test action"],
         }
 
-        with patch("imkb.action_pipeline.get_config") as mock_get_config:
-            mock_config = MagicMock()
-            mock_get_config.return_value = mock_config
+        with patch("imkb.context.NamespaceContext") as mock_context:
+            mock_context.return_value.__enter__.return_value = "custom_tenant"
+            mock_context.return_value.__exit__.return_value = None
 
-            with patch("imkb.action_pipeline.ActionPipeline") as mock_pipeline_class:
-                mock_pipeline = AsyncMock()
-                mock_pipeline_class.return_value = mock_pipeline
-                mock_pipeline.generate_actions.return_value = ActionResult(
-                    actions=["Test"], playbook="Test"
-                )
+            with patch("imkb.action_pipeline.get_config") as mock_get_config:
+                mock_config = MagicMock()
+                mock_get_config.return_value = mock_config
 
-                await gen_playbook(rca_data, namespace="custom_tenant")
+                with patch("imkb.action_pipeline.ActionPipeline") as mock_pipeline_class:
+                    mock_pipeline = AsyncMock()
+                    mock_pipeline_class.return_value = mock_pipeline
+                    mock_pipeline.generate_actions.return_value = ActionResult(
+                        actions=["Test"], playbook="Test"
+                    )
 
-        # Verify namespace was set on config
-        assert mock_config.namespace == "custom_tenant"
+                    await gen_playbook(rca_data, namespace="custom_tenant")
+
+        # Verify namespace context was used correctly
+        mock_context.assert_called_once_with("custom_tenant")
 
 
 class TestActionPipelineIntegration:

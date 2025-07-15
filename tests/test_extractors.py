@@ -72,7 +72,7 @@ class TestEvent:
             message="High memory usage detected",
         )
 
-        result = event.to_dict()
+        result = event.model_dump()
         expected = {
             "id": "test-789",
             "signature": "memory.leak",
@@ -110,7 +110,7 @@ class TestKBItem:
         """Test KBItem to_dict conversion"""
         item = KBItem(doc_id="kb_002", excerpt="Connection timeout error", score=0.7)
 
-        result = item.to_dict()
+        result = item.model_dump()
         expected = {
             "doc_id": "kb_002",
             "excerpt": "Connection timeout error",

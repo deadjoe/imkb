@@ -111,8 +111,8 @@ class ExtractorBase(ABC):
         Can be overridden by subclasses for custom context formatting.
         """
         return {
-            "event": event.to_dict(),
-            "snippets": [snippet.to_dict() for snippet in snippets],
+            "event": event.model_dump(),
+            "snippets": [snippet.model_dump() for snippet in snippets],
             "extractor_name": self.name,
             "timestamp": event.timestamp,
             "severity": event.severity,
