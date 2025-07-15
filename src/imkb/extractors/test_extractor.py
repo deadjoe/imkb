@@ -6,6 +6,7 @@ test data for development purposes.
 """
 
 import logging
+from typing import Any
 
 from ..adapters.mem0 import Mem0Adapter
 from ..config import ImkbConfig
@@ -32,33 +33,34 @@ class TestExtractor(ExtractorBase):
     def __init__(self, config: ImkbConfig):
         super().__init__(config)
         self.mem0_adapter = Mem0Adapter(config)
-        self._test_knowledge = [
-            {
-                "id": "test_kb_001",
-                "content": "High CPU usage can be caused by inefficient queries, insufficient indexing, or resource contention.",
-                "metadata": {"category": "performance", "source": "test_kb"},
-            },
-            {
-                "id": "test_kb_002",
-                "content": "Connection pool exhaustion typically indicates too many concurrent connections or connection leaks in the application.",
-                "metadata": {"category": "database", "source": "test_kb"},
-            },
-            {
-                "id": "test_kb_003",
-                "content": "Memory leaks in applications can cause gradual performance degradation and eventual system instability.",
-                "metadata": {"category": "memory", "source": "test_kb"},
-            },
-            {
-                "id": "test_kb_004",
-                "content": "Network timeouts may be caused by firewall rules, network congestion, or DNS resolution issues.",
-                "metadata": {"category": "network", "source": "test_kb"},
-            },
-            {
-                "id": "test_kb_005",
-                "content": "Disk I/O bottlenecks can be resolved by optimizing queries, adding indexes, or upgrading storage.",
-                "metadata": {"category": "storage", "source": "test_kb"},
-            },
-        ]
+        self._test_knowledge = self._load_test_knowledge()
+
+    def _load_test_knowledge(self) -> list[dict[str, Any]]:
+        """Load test knowledge base from external YAML file"""
+        try:
+            from pathlib import Path
+
+            import yaml
+
+            # Get the knowledge file path
+            knowledge_file = Path(__file__).parent / "data" / "test_knowledge.yaml"
+
+            if not knowledge_file.exists():
+                logger.warning(f"Test knowledge file not found: {knowledge_file}")
+                return []
+
+            with open(knowledge_file, encoding="utf-8") as f:
+                data = yaml.safe_load(f)
+
+            knowledge_base = data.get("knowledge_base", [])
+            logger.info(f"Loaded {len(knowledge_base)} test knowledge entries from {knowledge_file}")
+
+            return knowledge_base
+
+        except Exception as e:
+            logger.error(f"Failed to load test knowledge base: {e}")
+            # Return empty list as fallback
+            return []
 
     async def match(self, event: Event) -> bool:
         """

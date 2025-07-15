@@ -1,0 +1,35 @@
+---
+# Test Knowledge Base
+# This file contains the default knowledge base entries for testing
+# These entries are used by the TestExtractor for seeding initial knowledge
+
+knowledge_base:
+  - id: "test_kb_001"
+    content: "High CPU usage can be caused by inefficient queries, insufficient indexing, or resource contention."
+    metadata:
+      category: "performance"
+      source: "test_kb"
+
+  - id: "test_kb_002"
+    content: "Connection pool exhaustion typically indicates too many concurrent connections or connection leaks in the application."
+    metadata:
+      category: "database"
+      source: "test_kb"
+
+  - id: "test_kb_003"
+    content: "Memory leaks in applications can cause gradual performance degradation and eventual system instability."
+    metadata:
+      category: "memory"
+      source: "test_kb"
+
+  - id: "test_kb_004"
+    content: "Network timeouts may be caused by firewall rules, network congestion, or DNS resolution issues."
+    metadata:
+      category: "network"
+      source: "test_kb"
+
+  - id: "test_kb_005"
+    content: "Disk I/O bottlenecks can be resolved by optimizing queries, adding indexes, or upgrading storage."
+    metadata:
+      category: "storage"
+      source: "test_kb"

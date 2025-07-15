@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 import yaml
+from pydantic import BaseModel, Field
 
 from .config import ImkbConfig, LLMRouterConfig
 
@@ -54,31 +55,14 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-class LLMResponse:
+class LLMResponse(BaseModel):
     """Standardized LLM response format"""
 
-    def __init__(
-        self,
-        content: str,
-        model: str,
-        tokens_used: Optional[int] = None,
-        finish_reason: Optional[str] = None,
-        metadata: Optional[dict[str, Any]] = None,
-    ):
-        self.content = content
-        self.model = model
-        self.tokens_used = tokens_used
-        self.finish_reason = finish_reason
-        self.metadata = metadata or {}
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "content": self.content,
-            "model": self.model,
-            "tokens_used": self.tokens_used,
-            "finish_reason": self.finish_reason,
-            "metadata": self.metadata,
-        }
+    content: str
+    model: str
+    tokens_used: Optional[int] = None
+    finish_reason: Optional[str] = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class BaseLLMClient(ABC):
@@ -98,12 +82,157 @@ class BaseLLMClient(ABC):
         """Check if LLM is available"""
 
 
-class OpenAIClient(BaseLLMClient):
-    """OpenAI API client"""
+class BaseOpenAICompatibleClient(BaseLLMClient):
+    """Base class for OpenAI-compatible clients to reduce code duplication"""
 
     def __init__(self, config: LLMRouterConfig):
         super().__init__(config)
         self._client = None
+
+    @abstractmethod
+    async def _get_client(self):
+        """Get the OpenAI client instance (must be implemented by subclasses)"""
+
+    @abstractmethod
+    def _get_provider_name(self) -> str:
+        """Get the provider name for tracing and metrics"""
+
+    @abstractmethod
+    def _get_trace_name(self) -> str:
+        """Get the trace operation name"""
+
+    def _get_additional_attributes(self) -> dict[str, Any]:
+        """Get additional attributes for tracing (can be overridden)"""
+        return {}
+
+    def _get_additional_metadata(self) -> dict[str, Any]:
+        """Get additional metadata for LLMResponse (can be overridden)"""
+        return {}
+
+    async def generate(
+        self, prompt: str, system_prompt: Optional[str] = None, **kwargs
+    ) -> LLMResponse:
+        """Generate response using OpenAI-compatible API"""
+        trace_name = self._get_trace_name()
+
+        @trace_async(trace_name)
+        async def _generate():
+            try:
+                client = await self._get_client()
+                provider_name = self._get_provider_name()
+
+                # Set basic attributes
+                set_attribute("llm.provider", provider_name)
+                set_attribute("llm.model", self.config.model)
+                set_attribute("prompt.length", len(prompt))
+                if system_prompt:
+                    set_attribute("system_prompt.length", len(system_prompt))
+
+                # Set additional attributes from subclass
+                for key, value in self._get_additional_attributes().items():
+                    set_attribute(key, value)
+
+                # Build messages
+                messages = []
+                if system_prompt:
+                    messages.append({"role": "system", "content": system_prompt})
+                messages.append({"role": "user", "content": prompt})
+
+                # Merge kwargs with config defaults
+                generation_params = {
+                    "model": self.config.model,
+                    "messages": messages,
+                    "temperature": self.config.temperature,
+                    "max_tokens": self.config.max_tokens,
+                    **kwargs,
+                }
+
+                set_attribute("llm.temperature", self.config.temperature)
+                set_attribute("llm.max_tokens", self.config.max_tokens)
+
+                # Make API call
+                response = await client.chat.completions.create(**generation_params)
+
+                # Build response
+                choice = response.choices[0]
+                base_metadata = {
+                    "prompt_tokens": (
+                        response.usage.prompt_tokens if response.usage else None
+                    ),
+                    "completion_tokens": (
+                        response.usage.completion_tokens if response.usage else None
+                    ),
+                }
+
+                # Add additional metadata from subclass
+                base_metadata.update(self._get_additional_metadata())
+
+                result = LLMResponse(
+                    content=choice.message.content,
+                    model=response.model,
+                    tokens_used=response.usage.total_tokens if response.usage else None,
+                    finish_reason=choice.finish_reason,
+                    metadata=base_metadata,
+                )
+
+                # Record metrics
+                metrics = get_metrics()
+                if metrics:
+                    metrics.record_llm_request(
+                        provider_name,
+                        self.config.model,
+                        "default",
+                        kwargs.get("template_type", ""),
+                    )
+                    if response.usage:
+                        metrics.record_llm_tokens(
+                            provider_name,
+                            self.config.model,
+                            "default",
+                            response.usage.prompt_tokens or 0,
+                            response.usage.completion_tokens or 0,
+                        )
+
+                set_attribute("response.tokens_used", result.tokens_used)
+                set_attribute("response.finish_reason", result.finish_reason)
+                add_event("llm_generation_complete")
+
+                return result
+
+            except Exception as e:
+                logger.error(f"{self._get_provider_name()} generation failed: {e}")
+
+                # Record error metrics
+                metrics = get_metrics()
+                if metrics:
+                    metrics.record_llm_error(
+                        self._get_provider_name(), self.config.model, "default", type(e).__name__
+                    )
+
+                set_attribute("error.type", type(e).__name__)
+                add_event("llm_generation_error", {"error": str(e)})
+                raise
+
+        return await _generate()
+
+    async def health_check(self) -> bool:
+        """Check LLM service availability"""
+        try:
+            client = await self._get_client()
+            # Simple test request
+            await client.chat.completions.create(
+                model=self.config.model,
+                messages=[{"role": "user", "content": "test"}],
+                max_tokens=1,
+            )
+            return True
+        except Exception as e:
+            logger.error(f"{self._get_provider_name()} health check failed: {e}")
+            return False
+
+
+class OpenAIClient(BaseOpenAICompatibleClient):
+    """OpenAI API client"""
 
     async def _get_client(self):
         """Lazy initialization of OpenAI client"""
@@ -120,110 +249,16 @@ class OpenAIClient(BaseLLMClient):
                 ) from e
         return self._client
 
-    @trace_async("llm.openai.generate")
-    async def generate(
-        self, prompt: str, system_prompt: Optional[str] = None, **kwargs
-    ) -> LLMResponse:
-        """Generate response using OpenAI API"""
-        try:
-            client = await self._get_client()
+    def _get_provider_name(self) -> str:
+        """Get the provider name for tracing and metrics"""
+        return "openai"
 
-            set_attribute("llm.provider", "openai")
-            set_attribute("llm.model", self.config.model)
-            set_attribute("prompt.length", len(prompt))
-            if system_prompt:
-                set_attribute("system_prompt.length", len(system_prompt))
-
-            messages = []
-            if system_prompt:
-                messages.append({"role": "system", "content": system_prompt})
-            messages.append({"role": "user", "content": prompt})
-
-            # Merge kwargs with config defaults
-            generation_params = {
-                "model": self.config.model,
-                "messages": messages,
-                "temperature": self.config.temperature,
-                "max_tokens": self.config.max_tokens,
-                **kwargs,
-            }
-
-            set_attribute("llm.temperature", self.config.temperature)
-            set_attribute("llm.max_tokens", self.config.max_tokens)
-
-            response = await client.chat.completions.create(**generation_params)
-
-            choice = response.choices[0]
-            result = LLMResponse(
-                content=choice.message.content,
-                model=response.model,
-                tokens_used=response.usage.total_tokens if response.usage else None,
-                finish_reason=choice.finish_reason,
-                metadata={
-                    "prompt_tokens": (
-                        response.usage.prompt_tokens if response.usage else None
-                    ),
-                    "completion_tokens": (
-                        response.usage.completion_tokens if response.usage else None
-                    ),
-                },
-            )
-
-            # Record metrics
-            metrics = get_metrics()
-            if metrics:
-                metrics.record_llm_request(
-                    "openai",
-                    self.config.model,
-                    "default",
-                    kwargs.get("template_type", ""),
-                )
-                if response.usage:
-                    metrics.record_llm_tokens(
-                        "openai",
-                        self.config.model,
-                        "default",
-                        response.usage.prompt_tokens or 0,
-                        response.usage.completion_tokens or 0,
-                    )
-
-            set_attribute("response.tokens_used", result.tokens_used)
-            set_attribute("response.finish_reason", result.finish_reason)
-            add_event("llm_generation_complete")
-
-            return result
-
-        except Exception as e:
-            logger.error(f"OpenAI generation failed: {e}")
-
-            # Record error metrics
-            metrics = get_metrics()
-            if metrics:
-                metrics.record_llm_error(
-                    "openai", self.config.model, "default", type(e).__name__
-                )
-
-            set_attribute("error.type", type(e).__name__)
-            add_event("llm_generation_error", {"error": str(e)})
-            raise
-
-    async def health_check(self) -> bool:
-        """Check OpenAI API availability"""
-        try:
-            client = await self._get_client()
-            # Simple test request
-            await client.chat.completions.create(
-                model=self.config.model,
-                messages=[{"role": "user", "content": "test"}],
-                max_tokens=1,
-            )
-            return True
-        except Exception as e:
-            logger.error(f"OpenAI health check failed: {e}")
-            return False
+    def _get_trace_name(self) -> str:
+        """Get the trace operation name"""
+        return "llm.openai.generate"
 
 
-class LocalLLMClient(BaseLLMClient):
+class LocalLLMClient(BaseOpenAICompatibleClient):
     """
     Local LLM client for OpenAI-compatible inference services
     
@@ -233,10 +268,6 @@ class LocalLLMClient(BaseLLMClient):
     - vLLM (http://your-server:8000/v1)
     - Text Generation WebUI (http://localhost:5000/v1)
     """
-
-    def __init__(self, config: LLMRouterConfig):
-        super().__init__(config)
-        self._client = None
 
     async def _get_client(self):
         """Lazy initialization of local OpenAI-compatible client"""
@@ -264,109 +295,21 @@ class LocalLLMClient(BaseLLMClient):
                 ) from e
         return self._client
 
-    @trace_async("llm.local.generate")
-    async def generate(
-        self, prompt: str, system_prompt: Optional[str] = None, **kwargs
-    ) -> LLMResponse:
-        """Generate response using local OpenAI-compatible API"""
-        try:
-            client = await self._get_client()
+    def _get_provider_name(self) -> str:
+        """Get the provider name for tracing and metrics"""
+        return "local"
 
-            set_attribute("llm.provider", "local")
-            set_attribute("llm.base_url", self.config.base_url)
-            set_attribute("llm.model", self.config.model)
-            set_attribute("prompt.length", len(prompt))
-            if system_prompt:
-                set_attribute("system_prompt.length", len(system_prompt))
+    def _get_trace_name(self) -> str:
+        """Get the trace operation name"""
+        return "llm.local.generate"
 
-            messages = []
-            if system_prompt:
-                messages.append({"role": "system", "content": system_prompt})
-            messages.append({"role": "user", "content": prompt})
+    def _get_additional_attributes(self) -> dict[str, Any]:
+        """Get additional attributes for tracing"""
+        return {"llm.base_url": self.config.base_url}
 
-            # Merge kwargs with config defaults
-            generation_params = {
-                "model": self.config.model,
-                "messages": messages,
-                "temperature": self.config.temperature,
-                "max_tokens": self.config.max_tokens,
-                **kwargs,
-            }
-
-            set_attribute("llm.temperature", self.config.temperature)
-            set_attribute("llm.max_tokens", self.config.max_tokens)
-
-            response = await client.chat.completions.create(**generation_params)
-
-            choice = response.choices[0]
-            result = LLMResponse(
-                content=choice.message.content,
-                model=response.model,
-                tokens_used=response.usage.total_tokens if response.usage else None,
-                finish_reason=choice.finish_reason,
-                metadata={
-                    "prompt_tokens": (
-                        response.usage.prompt_tokens if response.usage else None
-                    ),
-                    "completion_tokens": (
-                        response.usage.completion_tokens if response.usage else None
-                    ),
-                    "base_url": self.config.base_url,
-                },
-            )
-
-            # Record metrics
-            metrics = get_metrics()
-            if metrics:
-                metrics.record_llm_request(
-                    "local",
-                    self.config.model,
-                    "default",
-                    kwargs.get("template_type", ""),
-                )
-                if response.usage:
-                    metrics.record_llm_tokens(
-                        "local",
-                        self.config.model,
-                        "default",
-                        response.usage.prompt_tokens or 0,
-                        response.usage.completion_tokens or 0,
-                    )
-
-            set_attribute("response.tokens_used", result.tokens_used)
-            set_attribute("response.finish_reason", result.finish_reason)
-            add_event("llm_generation_complete")
-
-            return result
-
-        except Exception as e:
-            logger.error(f"Local LLM generation failed: {e}")
-
-            # Record error metrics
-            metrics = get_metrics()
-            if metrics:
-                metrics.record_llm_error(
-                    "local", self.config.model, "default", type(e).__name__
-                )
-
-            set_attribute("error.type", type(e).__name__)
-            add_event("llm_generation_error", {"error": str(e)})
-            raise
-
-    async def health_check(self) -> bool:
-        """Check local LLM service availability"""
-        try:
-            client = await self._get_client()
-            # Simple test request
-            await client.chat.completions.create(
-                model=self.config.model,
-                messages=[{"role": "user", "content": "test"}],
-                max_tokens=1,
-            )
-            return True
-        except Exception as e:
-            logger.error(f"Local LLM health check failed: {e}")
-            return False
+    def _get_additional_metadata(self) -> dict[str, Any]:
+        """Get additional metadata for LLMResponse"""
+        return {"base_url": self.config.base_url}
 
 
 class MockLLMClient(BaseLLMClient):
