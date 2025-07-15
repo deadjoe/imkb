@@ -79,7 +79,7 @@ class TestExtractor(ExtractorBase):
         Recall relevant knowledge using Mem0 hybrid storage + test data
         """
         try:
-            user_id = f"{self.config.namespace}_{event.source}_{self.name}"
+            user_id = f"{self.config.get_current_namespace()}_{event.source}_{self.name}"
 
             memories = []
             try:

@@ -223,6 +223,152 @@ class OpenAIClient(BaseLLMClient):
             return False
 
 
+class LocalLLMClient(BaseLLMClient):
+    """
+    Local LLM client for OpenAI-compatible inference services
+    
+    Supports popular local inference services like:
+    - Ollama (http://localhost:11434/v1)
+    - LMStudio (http://localhost:1234/v1)
+    - vLLM (http://your-server:8000/v1)
+    - Text Generation WebUI (http://localhost:5000/v1)
+    """
+
+    def __init__(self, config: LLMRouterConfig):
+        super().__init__(config)
+        self._client = None
+
+    async def _get_client(self):
+        """Lazy initialization of local OpenAI-compatible client"""
+        if self._client is None:
+            try:
+                from openai import AsyncOpenAI
+
+                # Use custom base_url for local inference services
+                base_url = self.config.base_url
+                if not base_url:
+                    raise ValueError(
+                        "base_url is required for local LLM provider. "
+                        "Examples: http://localhost:11434/v1 (Ollama), "
+                        "http://localhost:1234/v1 (LMStudio)"
+                    )
+
+                self._client = AsyncOpenAI(
+                    api_key=self.config.api_key or "not-needed",
+                    base_url=base_url,
+                    timeout=self.config.timeout
+                )
+            except ImportError as e:
+                raise ImportError(
+                    "OpenAI package not installed. Install with: uv add openai"
+                ) from e
+        return self._client
+
+    @trace_async("llm.local.generate")
+    async def generate(
+        self, prompt: str, system_prompt: Optional[str] = None, **kwargs
+    ) -> LLMResponse:
+        """Generate response using local OpenAI-compatible API"""
+        try:
+            client = await self._get_client()
+
+            set_attribute("llm.provider", "local")
+            set_attribute("llm.base_url", self.config.base_url)
+            set_attribute("llm.model", self.config.model)
+            set_attribute("prompt.length", len(prompt))
+            if system_prompt:
+                set_attribute("system_prompt.length", len(system_prompt))
+
+            messages = []
+            if system_prompt:
+                messages.append({"role": "system", "content": system_prompt})
+            messages.append({"role": "user", "content": prompt})
+
+            # Merge kwargs with config defaults
+            generation_params = {
+                "model": self.config.model,
+                "messages": messages,
+                "temperature": self.config.temperature,
+                "max_tokens": self.config.max_tokens,
+                **kwargs,
+            }
+
+            set_attribute("llm.temperature", self.config.temperature)
+            set_attribute("llm.max_tokens", self.config.max_tokens)
+
+            response = await client.chat.completions.create(**generation_params)
+
+            choice = response.choices[0]
+            result = LLMResponse(
+                content=choice.message.content,
+                model=response.model,
+                tokens_used=response.usage.total_tokens if response.usage else None,
+                finish_reason=choice.finish_reason,
+                metadata={
+                    "prompt_tokens": (
+                        response.usage.prompt_tokens if response.usage else None
+                    ),
+                    "completion_tokens": (
+                        response.usage.completion_tokens if response.usage else None
+                    ),
+                    "base_url": self.config.base_url,
+                },
+            )
+
+            # Record metrics
+            metrics = get_metrics()
+            if metrics:
+                metrics.record_llm_request(
+                    "local",
+                    self.config.model,
+                    "default",
+                    kwargs.get("template_type", ""),
+                )
+                if response.usage:
+                    metrics.record_llm_tokens(
+                        "local",
+                        self.config.model,
+                        "default",
+                        response.usage.prompt_tokens or 0,
+                        response.usage.completion_tokens or 0,
+                    )
+
+            set_attribute("response.tokens_used", result.tokens_used)
+            set_attribute("response.finish_reason", result.finish_reason)
+            add_event("llm_generation_complete")
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Local LLM generation failed: {e}")
+
+            # Record error metrics
+            metrics = get_metrics()
+            if metrics:
+                metrics.record_llm_error(
+                    "local", self.config.model, "default", type(e).__name__
+                )
+
+            set_attribute("error.type", type(e).__name__)
+            add_event("llm_generation_error", {"error": str(e)})
+            raise
+
+    async def health_check(self) -> bool:
+        """Check local LLM service availability"""
+        try:
+            client = await self._get_client()
+            # Simple test request
+            await client.chat.completions.create(
+                model=self.config.model,
+                messages=[{"role": "user", "content": "test"}],
+                max_tokens=1,
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Local LLM health check failed: {e}")
+            return False
+
+
 class MockLLMClient(BaseLLMClient):
     """Mock LLM client for testing and development"""
 
@@ -233,9 +379,14 @@ class MockLLMClient(BaseLLMClient):
     def _load_mock_responses(self):
         """Load mock responses from external YAML file"""
         try:
-            mock_responses_path = (
-                Path(__file__).parent / "prompts" / "mock_responses.yaml"
-            )
+            # Use configured path or default
+            if self.config.mock_responses_path:
+                mock_responses_path = Path(self.config.mock_responses_path)
+            else:
+                mock_responses_path = (
+                    Path(__file__).parent / "prompts" / "mock_responses.yaml"
+                )
+
             with open(mock_responses_path) as f:
                 self.mock_responses = yaml.safe_load(f)
         except Exception as e:
@@ -331,6 +482,8 @@ class LLMRouter:
                 )
                 return MockLLMClient(router_config)
             return OpenAIClient(router_config)
+        if provider == "local":
+            return LocalLLMClient(router_config)
         if provider == "mock":
             return MockLLMClient(router_config)
         logger.warning(f"Unknown LLM provider '{provider}', using mock client")

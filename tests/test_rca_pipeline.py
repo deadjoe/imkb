@@ -80,7 +80,7 @@ class TestRCAResult:
             immediate_actions=["Action 1"],
         )
 
-        result_dict = result.to_dict()
+        result_dict = result.model_dump()
 
         assert result_dict["root_cause"] == "Test cause"
         assert result_dict["confidence"] == 0.8
@@ -441,8 +441,8 @@ This analysis indicates a clear memory issue."""
         mock_extractor.name = "test"
         mock_extractor.prompt_template = "test_rca:v1"
         mock_extractor.get_prompt_context.return_value = {
-            "event": event.to_dict(),
-            "knowledge_items": [item.to_dict() for item in knowledge_items],
+            "event": event.model_dump(),
+            "knowledge_items": [item.model_dump() for item in knowledge_items],
         }
 
         # Mock LLM response

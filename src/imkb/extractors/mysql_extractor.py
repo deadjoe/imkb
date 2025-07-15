@@ -163,7 +163,7 @@ class MySQLKBExtractor(ExtractorBase):
         """
         try:
             # Generate user_id for namespace isolation
-            user_id = f"{self.config.namespace}_{event.source}_{self.name}"
+            user_id = f"{self.config.get_current_namespace()}_{event.source}_{self.name}"
 
             # First, try to search existing memories in Mem0
             memories = []

@@ -133,7 +133,7 @@ def sample_rca_result(sample_kb_items):
 @pytest.fixture
 def sample_rca_data(sample_rca_result):
     """Provide sample RCA data as dictionary"""
-    return sample_rca_result.to_dict()
+    return sample_rca_result.model_dump()
 
 
 @pytest.fixture

@@ -136,7 +136,12 @@ def extract_json_from_text(text: str) -> Optional[dict[str, Any]]:
 class PromptManager:
     """Manages Jinja2 templates for LLM prompts"""
 
-    def __init__(self, prompts_dir: str = "src/imkb/prompts"):
+    def __init__(self, prompts_dir: Optional[str] = None):
+        if prompts_dir is None:
+            # Get prompts directory from config
+            config = get_config()
+            prompts_dir = config.prompts.prompts_dir
+
         self.prompts_dir = Path(prompts_dir)
         self.env = jinja2.Environment(
             loader=jinja2.FileSystemLoader(str(self.prompts_dir)),
@@ -200,10 +205,17 @@ class RCAPipeline:
         set_attribute("event.id", event.id)
         set_attribute("available_extractors", len(extractors))
 
-        # Sort extractors by specificity (non-test extractors first)
-        sorted_extractors = sorted(
-            extractors, key=lambda x: 0 if x.name != "test" else 1
-        )
+        # Sort extractors by configured priority order
+        priority_order = self.config.extractors.priority_order
+
+        def get_priority(extractor):
+            try:
+                return priority_order.index(extractor.name)
+            except ValueError:
+                # If not in priority list, put at the end
+                return len(priority_order)
+
+        sorted_extractors = sorted(extractors, key=get_priority)
 
         for extractor in sorted_extractors:
             try:
@@ -381,53 +393,56 @@ async def get_rca(
             set_attribute("event.id", event.id)
             set_attribute("event.namespace", namespace)
 
-            # Initialize pipeline with namespace
+            # Initialize pipeline with namespace context
             config = get_config()
-            config.namespace = namespace
-            pipeline = RCAPipeline(config)
 
-            # Find matching extractor
-            extractor = await pipeline.find_matching_extractor(event)
-            if not extractor:
-                result = RCAResult(
-                    root_cause="No suitable knowledge extractor found for this event type",
-                    confidence=0.0,
-                    extractor="none",
-                    references=[],
-                    status="NO_EXTRACTOR",
-                )
+            # Use context-based namespace instead of modifying global state
+            from .context import NamespaceContext
+            with NamespaceContext(namespace):
+                pipeline = RCAPipeline(config)
+
+                # Find matching extractor
+                extractor = await pipeline.find_matching_extractor(event)
+                if not extractor:
+                    result = RCAResult(
+                        root_cause="No suitable knowledge extractor found for this event type",
+                        confidence=0.0,
+                        extractor="none",
+                        references=[],
+                        status="NO_EXTRACTOR",
+                    )
+
+                    # Record metrics
+                    if metrics:
+                        metrics.record_rca_request("none", namespace, "NO_EXTRACTOR")
+
+                    return result.model_dump()
+
+                # Record successful extractor match
+                set_attribute("extractor.name", extractor.name)
+
+                # Recall knowledge
+                knowledge_items = await pipeline.recall_knowledge(event, extractor)
+
+                # Generate RCA
+                rca_result = await pipeline.generate_rca(event, extractor, knowledge_items)
 
                 # Record metrics
                 if metrics:
-                    metrics.record_rca_request("none", namespace, "NO_EXTRACTOR")
+                    metrics.record_rca_request(extractor.name, namespace, rca_result.status)
+                    if rca_result.status == "SUCCESS":
+                        metrics.record_rca_success(
+                            extractor.name, namespace, rca_result.confidence
+                        )
+                    else:
+                        metrics.record_rca_error(
+                            extractor.name, namespace, rca_result.status
+                        )
 
-                return result.to_dict()
+                set_attribute("rca.confidence", rca_result.confidence)
+                set_attribute("rca.status", rca_result.status)
 
-            # Record successful extractor match
-            set_attribute("extractor.name", extractor.name)
-
-            # Recall knowledge
-            knowledge_items = await pipeline.recall_knowledge(event, extractor)
-
-            # Generate RCA
-            rca_result = await pipeline.generate_rca(event, extractor, knowledge_items)
-
-            # Record metrics
-            if metrics:
-                metrics.record_rca_request(extractor.name, namespace, rca_result.status)
-                if rca_result.status == "SUCCESS":
-                    metrics.record_rca_success(
-                        extractor.name, namespace, rca_result.confidence
-                    )
-                else:
-                    metrics.record_rca_error(
-                        extractor.name, namespace, rca_result.status
-                    )
-
-            set_attribute("rca.confidence", rca_result.confidence)
-            set_attribute("rca.status", rca_result.status)
-
-            return rca_result.to_dict()
+                return rca_result.model_dump()
 
         except Exception as e:
             logger.error(f"RCA pipeline failed: {e}")
@@ -450,4 +465,4 @@ async def get_rca(
                 metadata={"error": str(e)},
             )
 
-            return result.to_dict()
+            return result.model_dump()

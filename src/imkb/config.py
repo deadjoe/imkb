@@ -52,14 +52,16 @@ class Mem0Config(BaseModel):
 class LLMRouterConfig(BaseModel):
     """Single LLM router configuration"""
 
-    provider: str = "openai"  # "openai", "llama_cpp", etc.
+    provider: str = "openai"  # "openai", "local", "mock", etc.
     model: str = "gpt-4o-mini"
     api_key: Optional[str] = "sk-placeholder-test-key"
+    base_url: Optional[str] = None  # For local inference services (ollama, lmstudio, vllm)
     temperature: float = Field(default=0.2, ge=0.0, le=2.0)
     max_tokens: int = Field(default=1024, gt=0)
     timeout: float = Field(default=30.0, gt=0)
     gpu_layers: Optional[int] = None
     model_path: Optional[str] = None
+    mock_responses_path: Optional[str] = None  # Path to mock responses file for testing
 
 
 class LLMConfig(BaseModel):
@@ -84,6 +86,7 @@ class ExtractorsConfig(BaseModel):
     """All extractors configuration"""
 
     enabled: list[str] = Field(default_factory=lambda: ["mysqlkb"])
+    priority_order: list[str] = Field(default_factory=lambda: ["mysqlkb", "test"])  # Higher priority first
     extractors: dict[str, ExtractorConfig] = Field(
         default_factory=lambda: {
             "test": ExtractorConfig(),
@@ -91,15 +94,18 @@ class ExtractorsConfig(BaseModel):
         }
     )
 
-    def __getattr__(self, name: str) -> ExtractorConfig:
-        """Allow accessing extractor configs as attributes for backward compatibility"""
-        if name in self.extractors:
-            return self.extractors[name]
-        raise AttributeError(f"No extractor config for '{name}'")
 
     def get_extractor_config(self, name: str) -> ExtractorConfig:
         """Get extractor configuration by name"""
         return self.extractors.get(name, ExtractorConfig())
+
+
+class PromptsConfig(BaseModel):
+    """Prompts configuration"""
+
+    rca_template_path: str = "test_rca/v1/template.jinja2"
+    action_template_path: str = "action_generation/v1/template.jinja2"
+    prompts_dir: str = "src/imkb/prompts"
 
 
 class FeaturesConfig(BaseModel):
@@ -152,12 +158,13 @@ class ImkbConfig(BaseSettings):
     mem0: Mem0Config = Field(default_factory=Mem0Config)
     llm: LLMConfig = Field(default_factory=LLMConfig)
     extractors: ExtractorsConfig = Field(default_factory=ExtractorsConfig)
+    prompts: PromptsConfig = Field(default_factory=PromptsConfig)
     features: FeaturesConfig = Field(default_factory=FeaturesConfig)
     telemetry: TelemetryConfig = Field(default_factory=TelemetryConfig)
     performance: PerformanceConfig = Field(default_factory=PerformanceConfig)
     security: SecurityConfig = Field(default_factory=SecurityConfig)
 
-    namespace: str = "default"
+    namespace: str = "default"  # Default namespace, can be overridden by context
     log_level: str = "INFO"
 
     @classmethod
@@ -206,6 +213,15 @@ class ImkbConfig(BaseSettings):
         if router_name not in self.llm.routers:
             raise ValueError(f"LLM router '{router_name}' not found in configuration")
         return self.llm.routers[router_name]
+
+    def get_current_namespace(self) -> str:
+        """Get the current effective namespace (context takes precedence over config)"""
+        try:
+            from .context import get_namespace
+            return get_namespace()
+        except ImportError:
+            # Fallback to config namespace if context module not available
+            return self.namespace
 
 
 _config: Optional[ImkbConfig] = None

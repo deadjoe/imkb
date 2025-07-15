@@ -10,7 +10,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from imkb.config import ImkbConfig, LLMRouterConfig
-from imkb.llm_client import LLMResponse, LLMRouter, MockLLMClient, OpenAIClient
+from imkb.llm_client import (
+    LLMResponse,
+    LLMRouter,
+    LocalLLMClient,
+    MockLLMClient,
+    OpenAIClient,
+)
 
 
 class TestLLMResponse:
@@ -288,6 +294,17 @@ class TestLLMRouter:
         config = LLMRouterConfig(provider="mock")
         client = self.router._create_client("test", config)
         assert isinstance(client, MockLLMClient)
+
+    def test_create_local_client(self):
+        """Test creating LocalLLMClient for local provider"""
+        config = LLMRouterConfig(
+            provider="local",
+            base_url="http://localhost:11434/v1"
+        )
+        client = self.router._create_client("local_router", config)
+
+        assert isinstance(client, LocalLLMClient)
+        assert client.config.base_url == "http://localhost:11434/v1"
 
     def test_create_unknown_provider_client(self):
         """Test creating client for unknown provider defaults to mock"""

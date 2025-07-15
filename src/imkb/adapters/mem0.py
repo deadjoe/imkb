@@ -258,7 +258,7 @@ class Mem0Adapter:
         try:
             await self.initialize()
             # Try a simple operation to verify connectivity
-            test_user = f"{self.config.namespace}_health_check"
+            test_user = f"{self.config.get_current_namespace()}_health_check"
             await self.search("health_check", test_user, limit=1)
             return True
         except Exception as e:

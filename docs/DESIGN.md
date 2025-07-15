@@ -127,7 +127,9 @@ imkb/
 ├── recall.py                # 核心召回策略（Mem0 hybrid）
 ├── rca_pipeline.py          # 高阶 API：get_rca()
 ├── action_pipeline.py       # 高阶 API：gen_playbook()
+├── context.py               # 命名空间上下文管理
 ├── config.py                # pydantic Settings
+├── models.py                # 核心数据模型
 ├── telemetry.py             # OpenTelemetry & metrics
 └── cli.py                   # `python -m imkb ...`
 ```
@@ -245,7 +247,7 @@ class MySQLKBExtractor:
 
 | 层 | 隔离键 | 实现方式 |
 |---|--------|----------|
-|配置|`namespace = f"{env}-{org_id}"`|注入到 ContextVar，全链路透传|
+|配置|`namespace = f"{env}-{org_id}"`|使用 ContextVar + NamespaceContext 管理器，全链路透传|
 |Mem0-Qdrant|`collection = "vec_" + namespace`|每租户独立 collection|
 |Mem0-Graph (Neo4j)|使用 database 级隔离|每租户独立 database，避免 Cypher 注入|
 |Solr/SQL KB|core/schema 每租户前缀|Adapter 在查询时拼接租户标识|
@@ -264,17 +266,29 @@ class MySQLKBExtractor:
 
 ```yaml
 llm:
-  default: "deepseek_local"
+  default: "openai_dev"
   routers:
-    deepseek_local:
-      provider: "llama_cpp"
-      model: "deepseek-33b.awq"
-      gpu_layers: 20
-      max_tokens: 1024
-    openai_cloud:
+    openai_dev:
       provider: "openai"
       model: "gpt-4o-mini"
-      api_key: "${OPENAI_API_KEY}"
+      api_key: "sk-placeholder-key-for-development"
+      temperature: 0.2
+      max_tokens: 2048
+    # 本地推理服务（OpenAI 兼容 API）
+    ollama_local:
+      provider: "local"
+      model: "llama3.1:8b"
+      base_url: "http://localhost:11434/v1"
+      api_key: "not-needed"
+      temperature: 0.2
+      max_tokens: 2048
+    lmstudio_local:
+      provider: "local"
+      model: "llama-3.1-8b-instruct"
+      base_url: "http://localhost:1234/v1"
+      api_key: "lm-studio"
+      temperature: 0.2
+      max_tokens: 2048
 
 mem0:
   vector_store:
@@ -290,14 +304,24 @@ mem0:
 
 extractors:
   enabled:
-    - rhokp
+    - test
     - mysqlkb
-  rhokp:
-    solr_url: "https://rhokp.local/solr"
+  priority_order:
+    - mysqlkb  # 优先级顺序
+    - test
+  test:
     timeout: 5.0
+    max_results: 8
+    enabled: true
   mysqlkb:
-    connection_string: "mysql://user:pass@localhost/kb"
-    cache_ttl: 3600
+    timeout: 3.0
+    max_results: 10
+    enabled: true
+
+prompts:
+  rca_template_path: "test_rca/v1/template.jinja2"
+  action_template_path: "action_generation/v1/template.jinja2"
+  prompts_dir: "src/imkb/prompts"
 
 features:
   mem0_graph: true
@@ -381,17 +405,19 @@ await prompt_manager.rollback("mysql_rca")
 
 ### Phase 1: 核心召回 + 推理
 - [x] Mem0 向量+图混合召回
-- [x] 单一 LLM 客户端（本地 llama.cpp）
+- [x] 统一 LLM 客户端（本地/云端）
 - [x] MySQL KB Extractor
 - [x] 基础错误处理
 
 ### Phase 2: 生产化
-- [ ] 多租户隔离
-- [ ] OpenTelemetry 可观测性
-- [ ] 多 LLM 路由
-- [ ] Action Pipeline
+- [x] 多租户隔离（ContextVar + NamespaceContext）
+- [x] OpenTelemetry 可观测性
+- [x] 多 LLM 路由（OpenAI、本地服务、Mock）
+- [x] Action Pipeline
 
 ### Phase 3: 扩展
+- [x] 本地 LLM 服务支持（Ollama、LMStudio、vLLM）
+- [x] 配置系统完善
 - [ ] 更多 Extractor 插件
 - [ ] Web UI
 - [ ] 性能优化

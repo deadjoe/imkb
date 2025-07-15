@@ -1,0 +1,117 @@
+# imkb Configuration for Local LLM Inference Services
+# This configuration demonstrates how to use local inference services
+# with OpenAI-compatible APIs
+
+llm:
+  default: "ollama_local"  # Use local Ollama by default
+  routers:
+    # Ollama - Popular local model management
+    ollama_local:
+      provider: "local"
+      model: "llama3.1:8b"
+      base_url: "http://localhost:11434/v1"
+      api_key: "not-needed"
+      temperature: 0.2
+      max_tokens: 2048
+      timeout: 30.0
+    
+    # LM Studio - User-friendly local LLM interface
+    lmstudio_local:
+      provider: "local"
+      model: "llama-3.1-8b-instruct"
+      base_url: "http://localhost:1234/v1"
+      api_key: "lm-studio"
+      temperature: 0.2
+      max_tokens: 2048
+      timeout: 30.0
+    
+    # vLLM - High-performance enterprise inference
+    vllm_enterprise:
+      provider: "local"
+      model: "meta-llama/Llama-3.1-8B-Instruct"
+      base_url: "http://vllm-server:8000/v1"
+      api_key: "your-vllm-api-key"
+      temperature: 0.2
+      max_tokens: 2048
+      timeout: 30.0
+    
+    # Text Generation WebUI - Community favorite
+    text_gen_webui:
+      provider: "local"
+      model: "llama-3.1-8b"
+      base_url: "http://localhost:5000/v1"
+      api_key: "not-needed"
+      temperature: 0.2
+      max_tokens: 2048
+      timeout: 30.0
+    
+    # Custom local service
+    custom_local:
+      provider: "local"
+      model: "your-custom-model"
+      base_url: "http://your-server:8080/v1"
+      api_key: "your-api-key"
+      temperature: 0.2
+      max_tokens: 2048
+      timeout: 30.0
+
+# Standard mem0 configuration for knowledge storage
+mem0:
+  vector_store:
+    provider: "qdrant"
+    host: "localhost"
+    port: 6333
+    collection_name: "imkb_local_vectors"
+    embedding_model_dims: 1536
+  graph_store:
+    provider: "neo4j"
+    url: "neo4j://localhost:7687"
+    username: "neo4j"
+    password: "password123"
+    database: "neo4j"
+
+# Extractor configuration
+extractors:
+  enabled:
+    - test
+    - mysqlkb
+  test:
+    timeout: 5.0
+    max_results: 8
+    enabled: true
+  mysqlkb:
+    timeout: 3.0
+    max_results: 10
+    enabled: true
+
+# Feature flags
+features:
+  mem0_graph: true
+  solr_kb: false
+  playwright_kb: false
+  local_llm: true
+  cloud_llm: false
+
+# Telemetry configuration
+telemetry:
+  enable_metrics: true
+  enable_tracing: true
+  service_name: "imkb-local"
+  environment: "local"
+
+# Performance tuning for local inference
+performance:
+  recall_timeout: 5.0
+  llm_timeout: 60.0  # Local LLMs might need more time
+  max_concurrent: 2  # Fewer concurrent requests for local resources
+
+# Security settings
+security:
+  enable_audit_log: false
+  max_prompt_length: 8192
+  sanitize_inputs: true
+
+# Usage examples:
+# 1. Using Ollama (default): uv run imkb get-rca --event-file event.json
+# 2. Using LM Studio: uv run imkb get-rca --event-file event.json --llm-router lmstudio_local
+# 3. Using vLLM: uv run imkb get-rca --event-file event.json --llm-router vllm_enterprise

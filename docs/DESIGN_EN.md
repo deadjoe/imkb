@@ -127,7 +127,9 @@ imkb/
 ├── recall.py                # Core recall strategy (Mem0 hybrid)
 ├── rca_pipeline.py          # High-level API: get_rca()
 ├── action_pipeline.py       # High-level API: gen_playbook()
+├── context.py               # Namespace context management
 ├── config.py                # pydantic Settings
+├── models.py                # Core data models
 ├── telemetry.py             # OpenTelemetry & metrics
 └── cli.py                   # `python -m imkb ...`
 ```
@@ -245,7 +247,7 @@ class MySQLKBExtractor:
 
 | Layer | Isolation Key | Implementation |
 |-------|---------------|----------------|
-|Configuration|`namespace = f"{env}-{org_id}"`|Inject into ContextVar, pass through entire chain|
+|Configuration|`namespace = f"{env}-{org_id}"`|Use ContextVar + NamespaceContext manager, pass through entire chain|
 |Mem0-Qdrant|`collection = "vec_" + namespace`|Independent collection per tenant|
 |Mem0-Graph (Neo4j)|Use database-level isolation|Independent database per tenant, avoid Cypher injection|
 |Solr/SQL KB|core/schema per-tenant prefix|Adapter appends tenant identifier when querying|
@@ -264,17 +266,29 @@ All cross-tenant access attempts are logged to audit logs, including:
 
 ```yaml
 llm:
-  default: "deepseek_local"
+  default: "openai_dev"
   routers:
-    deepseek_local:
-      provider: "llama_cpp"
-      model: "deepseek-33b.awq"
-      gpu_layers: 20
-      max_tokens: 1024
-    openai_cloud:
+    openai_dev:
       provider: "openai"
       model: "gpt-4o-mini"
-      api_key: "${OPENAI_API_KEY}"
+      api_key: "sk-placeholder-key-for-development"
+      temperature: 0.2
+      max_tokens: 2048
+    # Local inference services (OpenAI-compatible APIs)
+    ollama_local:
+      provider: "local"
+      model: "llama3.1:8b"
+      base_url: "http://localhost:11434/v1"
+      api_key: "not-needed"
+      temperature: 0.2
+      max_tokens: 2048
+    lmstudio_local:
+      provider: "local"
+      model: "llama-3.1-8b-instruct"
+      base_url: "http://localhost:1234/v1"
+      api_key: "lm-studio"
+      temperature: 0.2
+      max_tokens: 2048
 
 mem0:
   vector_store:
@@ -290,14 +304,24 @@ mem0:
 
 extractors:
   enabled:
-    - rhokp
+    - test
     - mysqlkb
-  rhokp:
-    solr_url: "https://rhokp.local/solr"
+  priority_order:
+    - mysqlkb  # Priority order
+    - test
+  test:
     timeout: 5.0
+    max_results: 8
+    enabled: true
   mysqlkb:
-    connection_string: "mysql://user:pass@localhost/kb"
-    cache_ttl: 3600
+    timeout: 3.0
+    max_results: 10
+    enabled: true
+
+prompts:
+  rca_template_path: "test_rca/v1/template.jinja2"
+  action_template_path: "action_generation/v1/template.jinja2"
+  prompts_dir: "src/imkb/prompts"
 
 features:
   mem0_graph: true
@@ -381,17 +405,19 @@ await prompt_manager.rollback("mysql_rca")
 
 ### Phase 1: Core Recall + Inference
 - [x] Mem0 vector+graph hybrid recall
-- [x] Single LLM client (local llama.cpp)
+- [x] Unified LLM client (local/cloud)
 - [x] MySQL KB Extractor
 - [x] Basic error handling
 
 ### Phase 2: Production Ready
-- [ ] Multi-tenant isolation
-- [ ] OpenTelemetry observability
-- [ ] Multi-LLM routing
-- [ ] Action Pipeline
+- [x] Multi-tenant isolation (ContextVar + NamespaceContext)
+- [x] OpenTelemetry observability
+- [x] Multi-LLM routing (OpenAI, Local services, Mock)
+- [x] Action Pipeline
 
 ### Phase 3: Extensions
+- [x] Local LLM service support (Ollama, LMStudio, vLLM)
+- [x] Configuration system improvements
 - [ ] More Extractor plugins
 - [ ] Web UI
 - [ ] Performance optimization
