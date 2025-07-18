@@ -134,3 +134,4 @@ dmypy.json
 
 # Claude Code session memory files
 CLAUDE.md
+.claude/
